@@ -7,19 +7,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { IRequest } from "@/types/database";
 import { formatDistanceToNow } from "date-fns";
 import {
     ArrowLeft,
     Building2,
     CheckCircle2,
     Heart,
-    MapPin,
+    Loader2,
     Navigation,
     Phone,
     User
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 // Mission steps
 const MISSION_STEPS = [
@@ -31,27 +33,76 @@ const MISSION_STEPS = [
 
 type MissionStep = typeof MISSION_STEPS[number]["id"];
 
-// Mock mission data
-const mockMission = {
-  id: "MISSION001",
-  requestId: "REQ001",
-  patientName: "Ahmed Hassan",
-  bloodGroup: "O-" as const,
-  unitsNeeded: 2,
-  urgency: "CRITICAL" as const,
-  hospitalName: "Dhaka Medical College Hospital",
-  hospitalAddress: "Shahbag, Dhaka",
-  seekerName: "Fatima Hassan",
-  seekerPhone: "01712345678",
-  acceptedAt: new Date(Date.now() - 15 * 60 * 1000), // 15 mins ago
-  estimatedTime: "25 mins",
-  distance: "3.2 km",
-  currentStep: "leaving" as MissionStep,
-};
-
-export default function MissionModePage() {
+export default function MissionModePage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState<MissionStep>(mockMission.currentStep);
+  const [request, setRequest] = useState<IRequest | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [requestId, setRequestId] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState<MissionStep>("accepted");
+
+  useEffect(() => {
+    params.then((p) => setRequestId(p.id));
+  }, [params]);
+
+  useEffect(() => {
+    if (!requestId) return;
+
+    const fetchMission = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/requests/${requestId}`);
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch mission details");
+        }
+
+        const data = await response.json();
+        setRequest(data.request);
+        
+        // Set current step based on status
+        if (data.request.status === "COMPLETED") {
+          setCurrentStep("completed");
+        } else if (data.request.status === "ACCEPTED") {
+          setCurrentStep("accepted");
+        }
+      } catch (error: any) {
+        console.error("Error fetching mission:", error);
+        toast.error("Failed to load mission details");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMission();
+  }, [requestId]);
+
+  if (loading) {
+    return (
+      <SidebarLayout userType="donor">
+        <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-emergency-600 mx-auto mb-4" />
+              <p className="text-gray-600">Loading mission...</p>
+            </div>
+          </div>
+        </div>
+      </SidebarLayout>
+    );
+  }
+
+  if (!request) {
+    return (
+      <SidebarLayout userType="donor">
+        <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
+          <div className="text-center py-12">
+            <p className="text-gray-600">Mission not found</p>
+            <Button onClick={() => router.back()} className="mt-4">Go Back</Button>
+          </div>
+        </div>
+      </SidebarLayout>
+    );
+  }
 
   const currentStepIndex = MISSION_STEPS.findIndex(step => step.id === currentStep);
   const progress = ((currentStepIndex + 1) / MISSION_STEPS.length) * 100;
@@ -70,6 +121,8 @@ export default function MissionModePage() {
 
   const isStepCurrent = (stepId: MissionStep) => stepId === currentStep;
 
+  const seeker = typeof request.seekerId === 'object' ? request.seekerId : null;
+
   return (
     <SidebarLayout userType="donor">
       <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
@@ -84,7 +137,7 @@ export default function MissionModePage() {
               <p className="text-gray-600 mt-1">Track your donation journey</p>
             </div>
             <Badge className="bg-emergency-600 text-white">
-              Active Mission
+              {request.status === "COMPLETED" ? "Completed" : "Active Mission"}
             </Badge>
           </div>
 
@@ -99,10 +152,6 @@ export default function MissionModePage() {
                   <CardDescription className="text-emergency-700">
                     {MISSION_STEPS[currentStepIndex].label} • {Math.round(progress)}% Complete
                   </CardDescription>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-emergency-700">Estimated Time</p>
-                  <p className="text-2xl font-bold text-emergency-900">{mockMission.estimatedTime}</p>
                 </div>
               </div>
             </CardHeader>
@@ -205,28 +254,28 @@ export default function MissionModePage() {
                   <User className="h-5 w-5 text-gray-400" />
                   <div>
                     <p className="text-sm text-gray-600">Patient Name</p>
-                    <p className="font-semibold">{mockMission.patientName}</p>
+                    <p className="font-semibold">{request.patientName}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="h-5 w-5" />
                   <div>
                     <p className="text-sm text-gray-600">Blood Group Needed</p>
-                    <BloodGroupBadge bloodGroup={mockMission.bloodGroup} size="md" />
+                    <BloodGroupBadge bloodGroup={request.bloodGroup} size="md" />
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="h-5 w-5" />
                   <div>
                     <p className="text-sm text-gray-600">Units Required</p>
-                    <p className="text-2xl font-bold text-emergency-600">{mockMission.unitsNeeded}</p>
+                    <p className="text-2xl font-bold text-emergency-600">{request.unitsNeeded}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="h-5 w-5" />
                   <div>
                     <p className="text-sm text-gray-600">Urgency</p>
-                    <UrgencyIndicator level={mockMission.urgency} />
+                    <UrgencyIndicator level={request.urgency} />
                   </div>
                 </div>
               </CardContent>
@@ -242,15 +291,8 @@ export default function MissionModePage() {
                   <Building2 className="h-5 w-5 text-gray-400 mt-0.5" />
                   <div>
                     <p className="text-sm text-gray-600">Hospital</p>
-                    <p className="font-semibold">{mockMission.hospitalName}</p>
-                    <p className="text-sm text-gray-500">{mockMission.hospitalAddress}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-gray-600">Distance</p>
-                    <p className="font-semibold">{mockMission.distance}</p>
+                    <p className="font-semibold">{request.hospitalName}</p>
+                    <p className="text-sm text-gray-500">{request.location?.thana}, {request.location?.district}</p>
                   </div>
                 </div>
                 <Separator />
@@ -263,31 +305,33 @@ export default function MissionModePage() {
           </div>
 
           {/* Contact Info */}
-          <Card className="border-2 border-trust-200 bg-trust-50">
-            <CardHeader>
-              <CardTitle className="text-trust-900">Emergency Contact</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-3">
-                <User className="h-5 w-5 text-trust-600" />
-                <div>
-                  <p className="text-sm text-trust-700">Contact Person</p>
-                  <p className="font-semibold text-trust-900">{mockMission.seekerName}</p>
+          {seeker && (
+            <Card className="border-2 border-trust-200 bg-trust-50">
+              <CardHeader>
+                <CardTitle className="text-trust-900">Emergency Contact</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <User className="h-5 w-5 text-trust-600" />
+                  <div>
+                    <p className="text-sm text-trust-700">Contact Person</p>
+                    <p className="font-semibold text-trust-900">{seeker.name}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Phone className="h-5 w-5 text-trust-600" />
-                <div className="flex-1">
-                  <p className="text-sm text-trust-700">Phone Number</p>
-                  <p className="font-mono font-semibold text-trust-900">{mockMission.seekerPhone}</p>
+                <div className="flex items-center gap-3">
+                  <Phone className="h-5 w-5 text-trust-600" />
+                  <div className="flex-1">
+                    <p className="text-sm text-trust-700">Phone Number</p>
+                    <p className="font-mono font-semibold text-trust-900">{seeker.phone}</p>
+                  </div>
+                  <Button size="sm" className="bg-trust-600 hover:bg-trust-700">
+                    <Phone className="mr-2 h-3 w-3" />
+                    Call Now
+                  </Button>
                 </div>
-                <Button size="sm" className="bg-trust-600 hover:bg-trust-700">
-                  <Phone className="mr-2 h-3 w-3" />
-                  Call Now
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Mission Stats */}
           <Card>
@@ -295,24 +339,20 @@ export default function MissionModePage() {
               <CardTitle>Mission Details</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">Mission ID</p>
-                  <p className="font-mono font-semibold">{mockMission.id}</p>
-                </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <p className="text-sm text-gray-600">Request ID</p>
-                  <p className="font-mono font-semibold">{mockMission.requestId}</p>
+                  <p className="font-mono font-semibold text-sm">{request._id}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Accepted</p>
                   <p className="font-semibold">
-                    {formatDistanceToNow(mockMission.acceptedAt, { addSuffix: true })}
+                    {request.acceptedAt ? formatDistanceToNow(new Date(request.acceptedAt), { addSuffix: true }) : 'Recently'}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Status</p>
-                  <Badge className="bg-emergency-600 text-white">Active</Badge>
+                  <Badge className="bg-emergency-600 text-white">{request.status}</Badge>
                 </div>
               </div>
             </CardContent>

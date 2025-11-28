@@ -2,30 +2,86 @@
 
 import {
     BloodGroupBadge,
-    TrustScoreBadge,
     UrgencyIndicator
 } from "@/components/features";
 import { SidebarLayout } from "@/components/layout/sidebar-layout";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { bloodGroups } from "@/lib/locations";
-import { mockRequests } from "@/lib/mock-data";
+import { IRequest } from "@/types/database";
 import { formatDistanceToNow } from "date-fns";
 import {
+    AlertCircle,
+    Building2,
     Clock,
     Droplet,
-    FileText,
+    Loader2,
     MapPin,
-    Search,
-    SlidersHorizontal
+    Search
 } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
-export default function DonorRequestFeed() {
-  // Mock data - will be filtered based on donor's blood group and location
-  const requests = mockRequests.filter(r => r.status === "OPEN");
+export default function DonorRequestsPage() {
+  const [requests, setRequests] = useState<IRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [bloodGroupFilter, setBloodGroupFilter] = useState("all");
+  const [urgencyFilter, setUrgencyFilter] = useState("all");
+
+  useEffect(() => {
+    const fetchRequests = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch("/api/requests?status=OPEN&sortBy=urgency&sortOrder=desc");
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch requests");
+        }
+
+        const data = await response.json();
+        setRequests(data.requests || []);
+      } catch (error: any) {
+        console.error("Error fetching requests:", error);
+        toast.error("Failed to load requests");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRequests();
+  }, []);
+
+  // Filter requests
+  const filteredRequests = requests.filter(request => {
+    const matchesSearch = request.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         request.hospitalName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesBloodGroup = bloodGroupFilter === "all" || request.bloodGroup === bloodGroupFilter;
+    const matchesUrgency = urgencyFilter === "all" || request.urgency === urgencyFilter;
+    
+    return matchesSearch && matchesBloodGroup && matchesUrgency;
+  });
+
+  // Calculate stats
+  const criticalCount = requests.filter(r => r.urgency === "CRITICAL").length;
+  const highPriorityCount = requests.filter(r => r.urgency === "HIGH" || r.urgency === "URGENT_6H" || r.urgency === "URGENT_12H").length;
+
+  if (loading) {
+    return (
+      <SidebarLayout userType="donor">
+        <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-emergency-600 mx-auto mb-4" />
+              <p className="text-gray-600">Loading requests...</p>
+            </div>
+          </div>
+        </div>
+      </SidebarLayout>
+    );
+  }
 
   return (
     <SidebarLayout userType="donor">
@@ -34,213 +90,147 @@ export default function DonorRequestFeed() {
           {/* Header */}
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Emergency Blood Requests</h1>
-            <p className="text-gray-600 mt-1">Help save lives by responding to urgent requests</p>
+            <p className="text-gray-600 mt-1">Find people who need your help</p>
           </div>
-
-          {/* Filters */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="grid md:grid-cols-4 gap-4">
-                {/* Search */}
-                <div className="md:col-span-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search by hospital, location..."
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-
-                {/* Blood Group Filter */}
-                <Select defaultValue="all">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Blood Groups</SelectItem>
-                    {bloodGroups.map((bg) => (
-                      <SelectItem key={bg} value={bg}>
-                        <div className="flex items-center gap-2">
-                          <Droplet className="h-4 w-4 text-emergency-600" fill="currentColor" />
-                          {bg}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {/* Urgency Filter */}
-                <Select defaultValue="all">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Urgency</SelectItem>
-                    <SelectItem value="CRITICAL">🔴 Critical (3h)</SelectItem>
-                    <SelectItem value="URGENT_6H">🟠 Urgent (6h)</SelectItem>
-                    <SelectItem value="URGENT_12H">🟡 Urgent (12h)</SelectItem>
-                    <SelectItem value="HIGH">🟢 High (24h)</SelectItem>
-                    <SelectItem value="NORMAL">⚪ Normal (2-3d)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Advanced Filters Toggle */}
-              <div className="mt-4 pt-4 border-t">
-                <Button variant="ghost" size="sm" className="text-gray-600">
-                  <SlidersHorizontal className="h-4 w-4 mr-2" />
-                  Advanced Filters
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Stats */}
           <div className="grid md:grid-cols-3 gap-4">
             <Card className="border-2 border-emergency-200 bg-emergency-50">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <AlertCircle className="h-10 w-10 text-emergency-600" />
                   <div>
-                    <p className="text-sm text-emergency-700 font-medium">Critical Requests</p>
-                    <p className="text-3xl font-bold text-emergency-600 mt-1">
-                      {requests.filter(r => r.urgency === "CRITICAL").length}
-                    </p>
-                  </div>
-                  <div className="h-12 w-12 rounded-full bg-emergency-600 flex items-center justify-center animate-pulse">
-                    <Droplet className="h-6 w-6 text-white" fill="currentColor" />
+                    <p className="text-3xl font-bold text-emergency-900">{criticalCount}</p>
+                    <p className="text-sm text-emergency-700">Critical</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <Clock className="h-10 w-10 text-warning-600" />
                   <div>
+                    <p className="text-3xl font-bold text-gray-900">{highPriorityCount}</p>
                     <p className="text-sm text-gray-600">High Priority</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-1">
-                      {requests.filter(r => r.urgency === "HIGH").length}
-                    </p>
-                  </div>
-                  <div className="h-12 w-12 rounded-full bg-cooldown-100 flex items-center justify-center">
-                    <Droplet className="h-6 w-6 text-cooldown-600" fill="currentColor" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <Droplet className="h-10 w-10 text-trust-600" fill="currentColor" />
                   <div>
+                    <p className="text-3xl font-bold text-gray-900">{requests.length}</p>
                     <p className="text-sm text-gray-600">Total Open</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-1">{requests.length}</p>
-                  </div>
-                  <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
-                    <FileText className="h-6 w-6 text-gray-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Request Grid */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">
-                {requests.length} Request{requests.length !== 1 ? 's' : ''} Found
-              </h2>
-              <Select defaultValue="urgency">
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="urgency">Sort by Urgency</SelectItem>
-                  <SelectItem value="distance">Sort by Distance</SelectItem>
-                  <SelectItem value="time">Sort by Time</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Filters */}
+          <Card>
+            <CardContent className="p-6">
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search by patient or hospital..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
 
-            {requests.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <Droplet className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No requests found</h3>
-                  <p className="text-gray-600">Try adjusting your filters</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid md:grid-cols-2 gap-4">
-                {requests.map((request) => (
-                  <Link key={request.id} href={`/request/${request.id}`}>
-                    <RequestCard request={request} />
-                  </Link>
-                ))}
+                <Select value={bloodGroupFilter} onValueChange={setBloodGroupFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Blood Group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Blood Groups</SelectItem>
+                    <SelectItem value="A+">A+</SelectItem>
+                    <SelectItem value="A-">A-</SelectItem>
+                    <SelectItem value="B+">B+</SelectItem>
+                    <SelectItem value="B-">B-</SelectItem>
+                    <SelectItem value="AB+">AB+</SelectItem>
+                    <SelectItem value="AB-">AB-</SelectItem>
+                    <SelectItem value="O+">O+</SelectItem>
+                    <SelectItem value="O-">O-</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Urgency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Urgencies</SelectItem>
+                    <SelectItem value="CRITICAL">Critical</SelectItem>
+                    <SelectItem value="URGENT_6H">Urgent (6H)</SelectItem>
+                    <SelectItem value="URGENT_12H">Urgent (12H)</SelectItem>
+                    <SelectItem value="HIGH">High</SelectItem>
+                    <SelectItem value="NORMAL">Normal</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-          </div>
+            </CardContent>
+          </Card>
+
+          {/* Requests List */}
+          {filteredRequests.length === 0 ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Droplet className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No requests found</h3>
+                <p className="text-gray-600">Try adjusting your filters</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {filteredRequests.map((request) => (
+                <Link key={request._id} href={`/request/${request._id}`}>
+                  <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                    <CardContent className="p-6">
+                      <div className="grid grid-cols-5 gap-4">
+                        <div className="col-span-3">
+                          <div className="flex items-center gap-3 mb-3">
+                            <BloodGroupBadge bloodGroup={request.bloodGroup} size="lg" />
+                            <UrgencyIndicator level={request.urgency} />
+                          </div>
+                          <h3 className="font-bold text-lg text-gray-900 mb-2">{request.patientName}</h3>
+                          <div className="space-y-1 text-sm text-gray-600">
+                            <div className="flex items-center gap-2">
+                              <Building2 className="h-4 w-4" />
+                              {request.hospitalName}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4" />
+                              {request.location?.thana}, {request.location?.district}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4" />
+                              Posted {formatDistanceToNow(new Date(request.createdAt), { addSuffix: true })}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="col-span-2 text-right flex flex-col justify-center">
+                          <p className="text-4xl font-bold text-emergency-600">{request.unitsNeeded}</p>
+                          <p className="text-sm text-gray-600">units needed</p>
+                          <Badge className="mt-3 bg-emergency-600">View Details</Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </SidebarLayout>
-  );
-}
-
-function RequestCard({ request }: { request: typeof mockRequests[0] }) {
-  return (
-    <Card className="hover:shadow-lg transition-shadow border-2 hover:border-emergency-200 cursor-pointer">
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <BloodGroupBadge bloodGroup={request.bloodGroup} size="lg" />
-              <div>
-                <CardTitle className="text-xl">{request.patientName}</CardTitle>
-                <CardDescription className="text-base">{request.unitsNeeded} unit(s) needed</CardDescription>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <UrgencyIndicator level={request.urgency} />
-            <TrustScoreBadge level={request.trustScore} />
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-3">
-          <div className="flex items-start gap-3">
-            <MapPin className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="font-semibold text-gray-900">{request.hospitalName}</p>
-              <p className="text-sm text-gray-600">{request.thana}, {request.district}</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <Clock className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="font-semibold text-gray-900">Needed by</p>
-              <p className="text-sm text-gray-600">
-                {formatDistanceToNow(request.neededBy, { addSuffix: true })}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between pt-4 border-t">
-          <div className="flex items-center gap-2">
-            {request.hasPrescription && (
-              <div className="flex items-center gap-1 text-trust-600 text-sm">
-                <FileText className="h-4 w-4" />
-                <span>Verified</span>
-              </div>
-            )}
-          </div>
-          <Button className="bg-emergency-600 hover:bg-emergency-700">
-            Respond to Request
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
   );
 }

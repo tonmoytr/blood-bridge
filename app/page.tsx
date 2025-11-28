@@ -93,11 +93,18 @@ export default function BloodBridgeRedesign() {
             </div>
           </Link>
 
-          <div className="hidden md:flex items-center gap-8">
-            <Button className="bg-red-600 text-white hover:bg-red-700 border-none shadow-lg font-semibold rounded-full px-6">
-              Download App
-            </Button>
-          </div>
+          <div className="hidden md:flex items-center gap-4">
+  <Link href="/signin">
+    <Button variant="ghost" className="text-slate-700 hover:text-red-600 font-medium">
+      Sign In
+    </Button>
+  </Link>
+  <Link href="/signup">
+    <Button className="bg-red-600 text-white hover:bg-red-700 border-none shadow-lg font-semibold rounded-full px-6">
+      Sign Up
+    </Button>
+  </Link>
+</div>
         </div>
       </nav>
 

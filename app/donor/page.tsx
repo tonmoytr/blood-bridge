@@ -1,27 +1,92 @@
 "use client";
 
 import {
-  CooldownProgress,
-  DonorCard,
-  StatusBadge
+    DonorCard,
+    StatusBadge
 } from "@/components/features";
 import { SidebarLayout } from "@/components/layout/sidebar-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { currentDonor } from "@/lib/mock-data";
+import { IRequest, IUser } from "@/types/database";
 import {
-  ArrowRight,
-  Award,
-  Calendar,
-  Clock,
-  Droplet,
-  Heart
+    ArrowRight,
+    Award,
+    Calendar,
+    Clock,
+    Droplet,
+    Heart,
+    Loader2
 } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 export default function DonorDashboard() {
-  const donor = currentDonor;
-  const isInCooldown = donor.status === "COOLDOWN";
+  const [donor, setDonor] = useState<IUser | null>(null);
+  const [activeMissions, setActiveMissions] = useState<IRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        // TODO: Replace with real donor ID from auth
+        const donorId = "6927e833f8cd4defb21cc1c1";
+
+        // Fetch donor data
+        const donorResponse = await fetch(`/api/users/${donorId}`);
+        if (donorResponse.ok) {
+          const donorData = await donorResponse.json();
+          setDonor(donorData.user);
+        }
+
+        // Fetch active missions
+        const missionsResponse = await fetch(`/api/requests?acceptedDonorId=${donorId}&status=ACCEPTED`);
+        if (missionsResponse.ok) {
+          const missionsData = await missionsResponse.json();
+          setActiveMissions(missionsData.requests || []);
+        }
+      } catch (error: any) {
+        console.error("Error fetching donor data:", error);
+        toast.error("Failed to load dashboard");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <SidebarLayout userType="donor">
+        <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-emergency-600 mx-auto mb-4" />
+              <p className="text-gray-600">Loading dashboard...</p>
+            </div>
+          </div>
+        </div>
+      </SidebarLayout>
+    );
+  }
+
+  if (!donor) {
+    return (
+      <SidebarLayout userType="donor">
+        <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
+          <div className="text-center py-12">
+            <p className="text-gray-600">Failed to load donor data</p>
+          </div>
+        </div>
+      </SidebarLayout>
+    );
+  }
+
+  const totalDonations = donor.totalDonations || 0;
+  const livesSaved = totalDonations * 3;
 
   return (
     <SidebarLayout userType="donor">
@@ -34,7 +99,7 @@ export default function DonorDashboard() {
           </div>
 
           <div className="grid lg:grid-cols-3 gap-6">
-            {/* Left Column - Digital Card & Status */}
+            {/* Left Column - Digital Card & Stats */}
             <div className="lg:col-span-1 space-y-6">
               {/* Digital Donor Card */}
               <DonorCard donor={donor} />
@@ -44,18 +109,27 @@ export default function DonorDashboard() {
                 <Card>
                   <CardContent className="p-4 text-center">
                     <Droplet className="h-8 w-8 mx-auto mb-2 text-emergency-600" fill="currentColor" />
-                    <p className="text-2xl font-bold text-gray-900">{donor.totalDonations}</p>
+                    <p className="text-2xl font-bold text-gray-900">{totalDonations}</p>
                     <p className="text-sm text-gray-600">Donations</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4 text-center">
                     <Heart className="h-8 w-8 mx-auto mb-2 text-trust-600" />
-                    <p className="text-2xl font-bold text-gray-900">{donor.totalDonations * 3}</p>
+                    <p className="text-2xl font-bold text-gray-900">{livesSaved}</p>
                     <p className="text-sm text-gray-600">Lives Saved</p>
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Active Missions */}
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <Clock className="h-8 w-8 mx-auto mb-2 text-warning-600" />
+                  <p className="text-2xl font-bold text-gray-900">{activeMissions.length}</p>
+                  <p className="text-sm text-gray-600">Active Missions</p>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Right Column - Status & Actions */}
@@ -72,30 +146,23 @@ export default function DonorDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {isInCooldown && donor.cooldownDaysRemaining && (
-                    <CooldownProgress 
-                      daysRemaining={donor.cooldownDaysRemaining} 
-                      totalDays={120}
-                    />
-                  )}
-
-                  {!isInCooldown && (
-                    <div className="flex items-center justify-between bg-trust-50 p-6 rounded-lg border border-trust-200">
-                      <div className="flex items-center gap-4">
-                        <div className="h-14 w-14 rounded-full bg-trust-600 flex items-center justify-center">
-                          <Heart className="h-7 w-7 text-white" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-lg text-trust-900">You're ready to donate!</p>
-                          <p className="text-sm text-trust-700">Check emergency requests near you</p>
-                        </div>
+                  <div className="flex items-center justify-between bg-trust-50 p-6 rounded-lg border border-trust-200">
+                    <div className="flex items-center gap-4">
+                      <div className="h-14 w-14 rounded-full bg-trust-600 flex items-center justify-center">
+                        <Heart className="h-7 w-7 text-white" />
                       </div>
+                      <div>
+                        <p className="font-bold text-lg text-trust-900">Ready to save lives!</p>
+                        <p className="text-sm text-trust-700">Check emergency requests near you</p>
+                      </div>
+                    </div>
+                    <Link href="/donor/requests">
                       <Button className="bg-trust-600 hover:bg-trust-700" size="lg">
                         View Requests
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </Button>
-                    </div>
-                  )}
+                    </Link>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -110,54 +177,59 @@ export default function DonorDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-3">
-                    {donor.badges.map((badge) => (
-                      <Badge 
-                        key={badge} 
-                        variant="outline" 
-                        className="text-base px-4 py-2 border-2 border-cooldown-500 text-cooldown-700 bg-cooldown-50"
-                      >
-                        <Award className="h-4 w-4 mr-2" />
-                        {badge}
-                      </Badge>
-                    ))}
+                    {donor.badges && donor.badges.length > 0 ? (
+                      donor.badges.map((badge) => (
+                        <Badge 
+                          key={badge} 
+                          variant="outline" 
+                          className="text-base px-4 py-2 border-2 border-cooldown-500 text-cooldown-700 bg-cooldown-50"
+                        >
+                          <Award className="h-4 w-4 mr-2" />
+                          {badge}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-gray-500 text-sm">Complete donations to earn badges!</p>
+                    )}
                   </div>
-                  {donor.badges.length === 0 && (
-                    <p className="text-gray-500 text-sm">Complete donations to earn badges!</p>
-                  )}
                 </CardContent>
               </Card>
 
               {/* Quick Actions Grid */}
               <div className="grid md:grid-cols-2 gap-4">
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-emergency-200">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-full bg-emergency-100 flex items-center justify-center">
-                        <Droplet className="h-6 w-6 text-emergency-600" />
+                <Link href="/donor/requests">
+                  <Card className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-emergency-200">
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-full bg-emergency-100 flex items-center justify-center">
+                          <Droplet className="h-6 w-6 text-emergency-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900">Emergency Requests</h3>
+                          <p className="text-sm text-gray-600">View blood requests near you</p>
+                        </div>
+                        <ArrowRight className="h-5 w-5 text-gray-400" />
                       </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">Emergency Requests</h3>
-                        <p className="text-sm text-gray-600">View blood requests near you</p>
-                      </div>
-                      <ArrowRight className="h-5 w-5 text-gray-400" />
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </Link>
 
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-cooldown-200">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-full bg-cooldown-100 flex items-center justify-center">
-                        <Calendar className="h-6 w-6 text-cooldown-600" />
+                <Link href="/donor/history">
+                  <Card className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-cooldown-200">
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-full bg-cooldown-100 flex items-center justify-center">
+                          <Calendar className="h-6 w-6 text-cooldown-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900">Donation History</h3>
+                          <p className="text-sm text-gray-600">View your past donations</p>
+                        </div>
+                        <ArrowRight className="h-5 w-5 text-gray-400" />
                       </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">Donation History</h3>
-                        <p className="text-sm text-gray-600">View your past donations</p>
-                      </div>
-                      <ArrowRight className="h-5 w-5 text-gray-400" />
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </Link>
               </div>
 
               {/* Snooze Controls */}

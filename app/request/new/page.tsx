@@ -14,14 +14,17 @@ import {
     getDistrictsByDivision,
     getThanasByDistrict
 } from "@/lib/locations";
-import { AlertCircle, ArrowLeft, Droplet } from "lucide-react";
+import { AlertCircle, ArrowLeft, Droplet, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 
 export default function NewRequestPage() {
   const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     patientName: "",
+    patientAge: "",
     bloodGroup: "",
     unitsNeeded: "1",
     urgency: "HIGH",
@@ -50,12 +53,61 @@ export default function NewRequestPage() {
     setThanas(getThanasByDistrict(district));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock submission - will connect to API later
-    console.log("Request submitted:", formData);
-    alert("Emergency request posted successfully! (Mock)");
-    router.push("/seeker");
+    setIsSubmitting(true);
+
+    try {
+      // TODO: Get real seeker ID from auth
+      const seekerId = "temp-seeker-id";
+      const seekerName = "Current Seeker";
+
+      const response = await fetch("/api/requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          seekerId,
+          seekerName,
+          patientName: formData.patientName,
+          patientAge: parseInt(formData.patientAge),
+          bloodGroup: formData.bloodGroup,
+          unitsNeeded: parseInt(formData.unitsNeeded),
+          urgency: formData.urgency,
+          hospitalName: formData.hospitalName,
+          location: {
+            division: formData.division,
+            district: formData.district,
+            thana: formData.thana,
+          },
+          contactPhone: formData.contactPhone,
+          alternatePhone: formData.alternatePhone,
+          neededBy: new Date(formData.neededBy).toISOString(),
+          additionalInfo: formData.additionalInfo,
+          hasPrescription: formData.hasPrescription,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create request");
+      }
+
+      toast.success("Emergency request posted successfully!", {
+        description: "Donors in your area will be notified immediately.",
+      });
+      
+      router.push("/seeker/requests");
+    } catch (error: any) {
+      console.error("Error creating request:", error);
+      toast.error("Failed to post request", {
+        description: error.message || "Please try again.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -89,16 +141,32 @@ export default function NewRequestPage() {
                 <CardDescription>Provide accurate details for faster matching</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Patient Name */}
-                <div className="space-y-2">
-                  <Label htmlFor="patientName">Patient Name *</Label>
-                  <Input
-                    id="patientName"
-                    required
-                    value={formData.patientName}
-                    onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
-                    placeholder="Enter patient's full name"
-                  />
+                {/* Patient Name & Age */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="patientName">Patient Name *</Label>
+                    <Input
+                      id="patientName"
+                      required
+                      value={formData.patientName}
+                      onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
+                      placeholder="Enter patient's full name"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="patientAge">Patient Age *</Label>
+                    <Input
+                      id="patientAge"
+                      type="number"
+                      min="0"
+                      max="120"
+                      required
+                      value={formData.patientAge}
+                      onChange={(e) => setFormData({ ...formData, patientAge: e.target.value })}
+                      placeholder="Age"
+                    />
+                  </div>
                 </div>
 
                 {/* Blood Group & Units */}
@@ -280,12 +348,31 @@ export default function NewRequestPage() {
 
                 {/* Submit Buttons */}
                 <div className="flex gap-3 pt-4">
-                  <Button type="button" variant="outline" onClick={() => router.back()} className="flex-1">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => router.back()} 
+                    className="flex-1"
+                    disabled={isSubmitting}
+                  >
                     Cancel
                   </Button>
-                  <Button type="submit" className="flex-1 bg-emergency-600 hover:bg-emergency-700 font-bold">
-                    <Droplet className="mr-2 h-4 w-4" fill="currentColor" />
-                    Post Emergency Request
+                  <Button 
+                    type="submit" 
+                    className="flex-1 bg-emergency-600 hover:bg-emergency-700 font-bold"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Posting...
+                      </>
+                    ) : (
+                      <>
+                        <Droplet className="mr-2 h-4 w-4" fill="currentColor" />
+                        Post Emergency Request
+                      </>
+                    )}
                   </Button>
                 </div>
               </CardContent>

@@ -59,7 +59,7 @@ export function DonorCard({ donor }: DonorCardProps) {
             </div>
             <div>
               <p className="text-xs text-emergency-100">Donor ID</p>
-              <p className="text-sm font-mono mt-1">BD{donor.id.padStart(6, '0')}</p>
+              <p className="text-sm font-mono mt-1">BD{donor.id ? String(donor.id).padStart(6, '0') : 'N/A'}</p>
             </div>
           </div>
 

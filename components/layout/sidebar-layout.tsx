@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import {
     Bell,
+    Clock,
     Droplet,
     FileText,
     Heart,
@@ -14,6 +15,7 @@ import {
     MessageSquare,
     Search,
     Settings,
+    Target,
     User
 } from "lucide-react";
 import Link from "next/link";
@@ -30,6 +32,7 @@ export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
   const donorNavItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/donor" },
     { icon: Search, label: "Find Requests", href: "/donor/requests" },
+    { icon: Target, label: "My Missions", href: "/donor/missions" },
     { icon: MessageSquare, label: "Messages", href: "/donor/messages" },
     { icon: Heart, label: "My Donations", href: "/donor/history" },
   ];
@@ -38,6 +41,7 @@ export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
     { icon: LayoutDashboard, label: "Dashboard", href: "/seeker" },
     { icon: FileText, label: "My Requests", href: "/seeker/requests" },
     { icon: MessageSquare, label: "Messages", href: "/seeker/messages" },
+    { icon: Clock, label: "History", href: "/seeker/history" },
   ];
 
   const navItems = userType === "donor" ? donorNavItems : seekerNavItems;
@@ -105,10 +109,20 @@ export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
                 Profile
               </Button>
             </Link>
-            <Button variant="ghost" className="w-full justify-start gap-3 text-gray-700">
-              <Settings className="h-5 w-5" />
-              Settings
-            </Button>
+            <Link href="/settings">
+              <Button 
+                variant="ghost" 
+                className={cn(
+                  "w-full justify-start gap-3",
+                  pathname === "/settings" 
+                    ? "bg-gray-100 text-gray-900" 
+                    : "text-gray-700"
+                )}
+              >
+                <Settings className="h-5 w-5" />
+                Settings
+              </Button>
+            </Link>
             <Link href="/">
               <Button variant="ghost" className="w-full justify-start gap-3 text-gray-700">
                 <LogOut className="h-5 w-5" />
@@ -130,9 +144,11 @@ export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
             <Button variant="ghost" size="icon">
               <Bell className="h-5 w-5" />
             </Button>
-            <Button variant="ghost" size="icon">
-              <Settings className="h-5 w-5" />
-            </Button>
+            <Link href="/settings">
+              <Button variant="ghost" size="icon">
+                <Settings className="h-5 w-5" />
+              </Button>
+            </Link>
           </div>
         </div>
         {/* Role Toggle - Mobile */}

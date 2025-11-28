@@ -22,6 +22,7 @@ import {
     CheckCircle2,
     Clock,
     FileText,
+    Loader2,
     MapPin,
     MessageSquare,
     Phone,
@@ -30,34 +31,11 @@ import {
     User,
     X
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import { toast } from "sonner";
 
-// Mock request data - will come from API later
-const mockRequest = {
-  id: "REQ001",
-  patientName: "Ahmed Hassan",
-  bloodGroup: "O-" as const,
-  unitsNeeded: 2,
-  urgency: "CRITICAL" as const,
-  hospitalName: "Dhaka Medical College Hospital",
-  division: "Dhaka",
-  district: "Dhaka",
-  thana: "Shahbag",
-  contactPhone: "01712345678",
-  alternatePhone: "01812345679",
-  neededBy: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-  createdAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-  additionalInfo: "Patient is in ICU. Urgent surgery scheduled. Please contact immediately if available.",
-  hasPrescription: true,
-  status: "OPEN" as const,
-  trustScore: "HIGH" as const,
-  seekerName: "Fatima Hassan",
-  seekerPhone: "01712345678",
-  relationship: "Sister"
-};
-
-// Mock chat messages
+// Mock chat messages (keeping these mock for now as we don't have chat API yet)
 const mockMessages = [
   {
     id: "1",
@@ -84,6 +62,10 @@ const mockMessages = [
 
 export default function RequestDetailsPage() {
   const router = useRouter();
+  const params = useParams();
+  const [request, setRequest] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
   const [hasAccepted, setHasAccepted] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [messages, setMessages] = useState(mockMessages);
@@ -91,9 +73,70 @@ export default function RequestDetailsPage() {
   const [replyingTo, setReplyingTo] = useState<typeof mockMessages[0] | null>(null);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
-  const handleAcceptRequest = () => {
-    setHasAccepted(true);
-    // In real app, this would call API to accept the request
+  useEffect(() => {
+    const fetchRequest = async () => {
+      try {
+        const response = await fetch(`/api/requests/${params.id}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch request details");
+        }
+        const data = await response.json();
+        setRequest(data.request);
+      } catch (err) {
+        console.error("Error fetching request:", err);
+        setError("Failed to load request details");
+        toast.error("Failed to load request details");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (params.id) {
+      fetchRequest();
+    }
+  }, [params.id]);
+
+  const handleAcceptRequest = async () => {
+    try {
+      setIsLoading(true);
+      
+      // TODO: Get real donor ID from auth
+      // Using a valid existing User ID for testing
+      const donorId = "6927e833f8cd4defb21cc1c1";
+      const donorName = "Current Donor";
+
+      const response = await fetch(`/api/requests/${params.id}/accept`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          donorId,
+          donorName,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to accept request");
+      }
+
+      // Update local state
+      setHasAccepted(true);
+      setRequest(data.request);
+      
+      toast.success("Request accepted!", {
+        description: "Contact information is now visible. Please reach out to the seeker.",
+      });
+    } catch (err: any) {
+      console.error("Error accepting request:", err);
+      toast.error("Failed to accept request", {
+        description: err.message || "Please try again.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSendMessage = () => {
@@ -125,6 +168,35 @@ export default function RequestDetailsPage() {
     }
   }, [newMessage]);
 
+  if (isLoading) {
+    return (
+      <SidebarLayout userType="donor">
+        <div className="flex justify-center items-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-emergency-600" />
+        </div>
+      </SidebarLayout>
+    );
+  }
+
+  if (error || !request) {
+    return (
+      <SidebarLayout userType="donor">
+        <div className="container mx-auto px-4 py-8">
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-12 text-center">
+              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-red-900">Error Loading Request</h3>
+              <p className="text-red-700 mb-4">{error || "Request not found"}</p>
+              <Button onClick={() => router.back()} variant="outline" className="border-red-200 hover:bg-red-100">
+                Go Back
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </SidebarLayout>
+    );
+  }
+
   return (
     <SidebarLayout userType="donor">
       <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
@@ -136,10 +208,10 @@ export default function RequestDetailsPage() {
             </Button>
             <div className="flex-1">
               <h1 className="text-3xl font-bold text-gray-900">Request Details</h1>
-              <p className="text-gray-600 mt-1">Request ID: {mockRequest.id}</p>
+              <p className="text-gray-600 mt-1">Request ID: {request._id}</p>
             </div>
             <Badge variant="outline" className="text-sm">
-              {mockRequest.status}
+              {request.status}
             </Badge>
           </div>
 
@@ -156,8 +228,8 @@ export default function RequestDetailsPage() {
                       <CardDescription>Emergency blood requirement details</CardDescription>
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                      <UrgencyIndicator level={mockRequest.urgency} />
-                      <TrustScoreBadge level={mockRequest.trustScore} />
+                      <UrgencyIndicator level={request.urgency} />
+                      <TrustScoreBadge level={request.trustScore} />
                     </div>
                   </div>
                 </CardHeader>
@@ -166,12 +238,12 @@ export default function RequestDetailsPage() {
                   <div className="flex items-center gap-6">
                     <div>
                       <p className="text-sm text-gray-600 mb-2">Blood Group Needed</p>
-                      <BloodGroupBadge bloodGroup={mockRequest.bloodGroup} size="lg" />
+                      <BloodGroupBadge bloodGroup={request.bloodGroup} size="lg" />
                     </div>
                     <Separator orientation="vertical" className="h-16" />
                     <div>
                       <p className="text-sm text-gray-600 mb-2">Units Required</p>
-                      <p className="text-4xl font-bold text-emergency-600">{mockRequest.unitsNeeded}</p>
+                      <p className="text-4xl font-bold text-emergency-600">{request.unitsNeeded}</p>
                     </div>
                   </div>
 
@@ -183,7 +255,10 @@ export default function RequestDetailsPage() {
                       <User className="h-5 w-5 text-gray-400 mt-0.5" />
                       <div>
                         <p className="text-sm text-gray-600">Patient Name</p>
-                        <p className="font-semibold text-gray-900">{mockRequest.patientName}</p>
+                        <p className="font-semibold text-gray-900">{request.patientName}</p>
+                        {request.patientAge && (
+                          <p className="text-xs text-gray-500">Age: {request.patientAge}</p>
+                        )}
                       </div>
                     </div>
 
@@ -192,10 +267,10 @@ export default function RequestDetailsPage() {
                       <div>
                         <p className="text-sm text-gray-600">Needed By</p>
                         <p className="font-semibold text-gray-900">
-                          {formatDistanceToNow(mockRequest.neededBy, { addSuffix: true })}
+                          {formatDistanceToNow(new Date(request.neededBy), { addSuffix: true })}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {mockRequest.neededBy.toLocaleString()}
+                          {new Date(request.neededBy).toLocaleString()}
                         </p>
                       </div>
                     </div>
@@ -204,7 +279,10 @@ export default function RequestDetailsPage() {
                       <Building2 className="h-5 w-5 text-gray-400 mt-0.5" />
                       <div>
                         <p className="text-sm text-gray-600">Hospital</p>
-                        <p className="font-semibold text-gray-900">{mockRequest.hospitalName}</p>
+                        <p className="font-semibold text-gray-900">{request.hospitalName}</p>
+                        {request.hospitalAddress && (
+                          <p className="text-xs text-gray-500">{request.hospitalAddress}</p>
+                        )}
                       </div>
                     </div>
 
@@ -213,9 +291,9 @@ export default function RequestDetailsPage() {
                       <div>
                         <p className="text-sm text-gray-600">Location</p>
                         <p className="font-semibold text-gray-900">
-                          {mockRequest.thana}, {mockRequest.district}
+                          {request.location?.thana || request.thana}, {request.location?.district || request.district}
                         </p>
-                        <p className="text-xs text-gray-500">{mockRequest.division} Division</p>
+                        <p className="text-xs text-gray-500">{request.location?.division || request.division} Division</p>
                       </div>
                     </div>
 
@@ -224,12 +302,12 @@ export default function RequestDetailsPage() {
                       <div>
                         <p className="text-sm text-gray-600">Posted</p>
                         <p className="font-semibold text-gray-900">
-                          {formatDistanceToNow(mockRequest.createdAt, { addSuffix: true })}
+                          {formatDistanceToNow(new Date(request.createdAt), { addSuffix: true })}
                         </p>
                       </div>
                     </div>
 
-                    {mockRequest.hasPrescription && (
+                    {request.hasPrescription && (
                       <div className="flex items-start gap-3">
                         <FileText className="h-5 w-5 text-trust-600 mt-0.5" />
                         <div>
@@ -238,18 +316,28 @@ export default function RequestDetailsPage() {
                             <CheckCircle2 className="h-3 w-3 mr-1" />
                             Verified
                           </Badge>
+                          {request.prescriptionUrl && (
+                            <a 
+                              href={request.prescriptionUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:underline block mt-1"
+                            >
+                              View Prescription
+                            </a>
+                          )}
                         </div>
                       </div>
                     )}
                   </div>
 
-                  {mockRequest.additionalInfo && (
+                  {request.additionalInfo && (
                     <>
                       <Separator />
                       <div>
                         <p className="text-sm text-gray-600 mb-2">Additional Information</p>
                         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                          <p className="text-gray-900">{mockRequest.additionalInfo}</p>
+                          <p className="text-gray-900">{request.additionalInfo}</p>
                         </div>
                       </div>
                     </>
@@ -267,12 +355,15 @@ export default function RequestDetailsPage() {
                     <User className="h-5 w-5 text-gray-400 mt-0.5" />
                     <div>
                       <p className="text-sm text-gray-600">Name</p>
-                      <p className="font-semibold text-gray-900">{mockRequest.seekerName}</p>
-                      <p className="text-sm text-gray-500">({mockRequest.relationship})</p>
+                      <p className="font-semibold text-gray-900">{request.seekerName}</p>
+                      {request.relationship && (
+                        <p className="text-sm text-gray-500">({request.relationship})</p>
+                      )}
                     </div>
                   </div>
 
-                  {hasAccepted ? (
+                  {/* Contact Information - Show if donor has accepted */}
+                  {(hasAccepted || (request.status === 'ACCEPTED' && request.acceptedDonorId === 'temp-donor-id')) ? (
                     <div className="flex items-start gap-3">
                       <Phone className="h-5 w-5 text-trust-600 mt-0.5" />
                       <div>
@@ -280,17 +371,17 @@ export default function RequestDetailsPage() {
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
                             <Badge variant="outline" className="font-mono">
-                              {mockRequest.contactPhone}
+                              {request.contactPhone}
                             </Badge>
                             <Button size="sm" variant="outline">
                               <Phone className="h-3 w-3 mr-1" />
                               Call
                             </Button>
                           </div>
-                          {mockRequest.alternatePhone && (
+                          {request.alternatePhone && (
                             <div className="flex items-center gap-2">
                               <Badge variant="outline" className="font-mono">
-                                {mockRequest.alternatePhone}
+                                {request.alternatePhone}
                               </Badge>
                               <Button size="sm" variant="outline">
                                 <Phone className="h-3 w-3 mr-1" />
@@ -326,23 +417,54 @@ export default function RequestDetailsPage() {
                   <CardTitle>Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {!hasAccepted ? (
+                  {/* Accept Button - Only show for OPEN requests */}
+                  {request.status === 'OPEN' && !hasAccepted && (
                     <Button 
                       className="w-full bg-emergency-600 hover:bg-emergency-700 font-bold"
                       size="lg"
                       onClick={handleAcceptRequest}
+                      disabled={isLoading}
                     >
                       <CheckCircle2 className="mr-2 h-5 w-5" />
-                      Accept Request
+                      {isLoading ? "Accepting..." : "Accept Request"}
                     </Button>
-                  ) : (
+                  )}
+
+                  {/* Accepted State - Show when user has accepted */}
+                  {(hasAccepted || (request.status === 'ACCEPTED' && request.acceptedDonorId === 'temp-donor-id')) && (
                     <div className="bg-trust-50 border border-trust-200 rounded-lg p-4">
                       <div className="flex items-center gap-2 text-trust-700">
                         <CheckCircle2 className="h-5 w-5" />
                         <p className="font-semibold">Request Accepted!</p>
                       </div>
                       <p className="text-sm text-trust-600 mt-1">
-                        Contact numbers are now visible
+                        Contact numbers are now visible below
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Already Accepted by Another Donor */}
+                  {request.status === 'ACCEPTED' && request.acceptedDonorId !== 'temp-donor-id' && !hasAccepted && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-gray-700">
+                        <AlertCircle className="h-5 w-5" />
+                        <p className="font-semibold">Already Accepted</p>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">
+                        This request has been accepted by another donor
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Completed/Cancelled States */}
+                  {(request.status === 'COMPLETED' || request.status === 'CANCELLED') && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-gray-700">
+                        <AlertCircle className="h-5 w-5" />
+                        <p className="font-semibold">Request {request.status === 'COMPLETED' ? 'Completed' : 'Cancelled'}</p>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">
+                        This request is no longer active
                       </p>
                     </div>
                   )}
@@ -361,12 +483,12 @@ export default function RequestDetailsPage() {
                         <div className="flex items-center gap-3">
                           {/* Avatar */}
                           <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center text-emergency-600 font-bold text-lg">
-                            {mockRequest.seekerName.split(' ').map((n: string) => n[0]).join('')}
+                            {request.seekerName.split(' ').map((n: string) => n[0]).join('')}
                           </div>
                           <div className="flex-1">
-                            <DialogTitle className="text-white text-lg">{mockRequest.seekerName}</DialogTitle>
+                            <DialogTitle className="text-white text-lg">{request.seekerName}</DialogTitle>
                             <DialogDescription className="text-emergency-100 text-sm">
-                              Request #{mockRequest.id} • {mockRequest.relationship}
+                              Request #{request._id} • {request.relationship || 'Seeker'}
                             </DialogDescription>
                           </div>
                         </div>
