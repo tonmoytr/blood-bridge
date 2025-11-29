@@ -92,11 +92,45 @@ export async function PATCH(
     
     await request.save();
 
+    // Create chat thread automatically
+    let threadId = null;
+    try {
+      const ChatThread = (await import('@/lib/models/ChatThread')).default;
+      
+      // Check if thread already exists
+      let thread = await ChatThread.findOne({ requestId: id });
+      
+      if (!thread) {
+        // Create new thread - ensure seekerId is a string
+        const seekerIdString = typeof request.seekerId === 'string' 
+          ? request.seekerId 
+          : request.seekerId?._id?.toString() || request.seekerId.toString();
+        
+        thread = await ChatThread.create({
+          requestId: id,
+          donorId,
+          seekerId: seekerIdString,
+          lastMessageAt: new Date(),
+          unreadCount: {
+            donor: 0,
+            seeker: 0,
+          },
+          status: 'ACTIVE',
+        });
+      }
+      
+      threadId = thread._id.toString();
+    } catch (threadError) {
+      console.error('Error creating chat thread:', threadError);
+      // Don't fail the request acceptance if thread creation fails
+    }
+
     return NextResponse.json(
       {
         success: true,
         message: 'Request accepted successfully',
         request,
+        threadId, // Return thread ID for redirect
       },
       { status: 200 }
     );

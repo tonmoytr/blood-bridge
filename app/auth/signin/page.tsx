@@ -44,6 +44,7 @@ export default function SignInPage() {
 
       // Store auth data
       localStorage.setItem("userId", data.userId);
+      localStorage.setItem("userName", data.userName || data.name || "User");
       localStorage.setItem("userRole", "donor"); // Default role
 
       toast.success("Signed in successfully");
