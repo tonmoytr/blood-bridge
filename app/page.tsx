@@ -1,5 +1,6 @@
 "use client";
 
+import { UserAvatarMenu } from "@/components/layout/user-avatar-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -75,36 +76,48 @@ export default function BloodBridgeRedesign() {
       `}</style>
 
       {/* --- NAVIGATION --- */}
-      <nav className={`fixed w-full z-50 transition-all duration-500 ${
-        scrollY > 20 ? "bg-white/80 backdrop-blur-md shadow-sm py-4" : "bg-white/60 backdrop-blur-sm py-6"
+      <nav className={`fixed w-full z-50 transition-all duration-300 ${
+        scrollY > 20 
+          ? "bg-white/95 backdrop-blur-lg shadow-[0_4px_20px_rgba(0,0,0,0.08)]" 
+          : "bg-white/60 backdrop-blur-sm"
       }`}>
-        <div className="container mx-auto px-6 flex justify-between items-center">
+        <div className="container mx-auto px-4 md:px-8 py-3 md:py-4 flex justify-between items-center max-w-7xl">
+          
+          {/* Logo Section - Enhanced */}
           <Link href="/">
-            <div className="flex items-center gap-2 group cursor-pointer">
+            <div className="flex items-center gap-2.5 group cursor-pointer">
               <div className="relative">
-                <div className="absolute inset-0 bg-red-500 rounded-full opacity-20 group-hover:animate-ping"></div>
-                <div className="relative w-10 h-10 bg-gradient-to-br from-red-600 to-red-800 rounded-full flex items-center justify-center text-white shadow-lg">
+                <div className="absolute inset-0 bg-red-500 rounded-full opacity-15 group-hover:opacity-25 blur-md transition-all duration-300"></div>
+                <div className="relative w-10 h-10 bg-gradient-to-br from-red-600 to-red-700 rounded-full flex items-center justify-center text-white shadow-[0_4px_12px_rgba(220,38,38,0.3)] group-hover:shadow-[0_6px_20px_rgba(220,38,38,0.4)] group-hover:scale-110 transition-all duration-300">
                   <Droplet size={20} fill="currentColor" className="text-white" />
                 </div>
               </div>
-              <span className="text-2xl font-bold tracking-tight text-slate-900">
+              <span className="hidden sm:block text-xl md:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent tracking-tight group-hover:from-red-600 group-hover:to-red-700 transition-all duration-300">
                 BloodBridge
               </span>
             </div>
           </Link>
 
-          <div className="hidden md:flex items-center gap-4">
-  <Link href="/auth/signin">
-    <Button variant="ghost" className="text-slate-700 hover:text-red-600 font-medium">
-      Sign In
-    </Button>
-  </Link>
-  <Link href="/auth/signup">
-    <Button className="bg-red-600 text-white hover:bg-red-700 border-none shadow-lg font-semibold rounded-full px-6">
-      Sign Up
-    </Button>
-  </Link>
-</div>
+          {/* Center Navigation - Professional Links */}
+          <div className="hidden lg:flex items-center gap-1">
+            {[
+              { href: "/donor", label: "Donate Blood", icon: "🩸" },
+              { href: "/seeker", label: "Find Donors", icon: "🔍" }
+            ].map((link) => (
+              <Link key={link.href} href={link.href}>
+                <button className="px-4 py-2 text-gray-700 hover:text-red-600 font-medium rounded-lg hover:bg-red-50 transition-all duration-200 text-sm group flex items-center gap-1.5">
+                  <span className="text-base">{link.icon}</span>
+                  {link.label}
+                </button>
+              </Link>
+            ))}
+          </div>
+
+          {/* Right Section - Auth/Avatar */}
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Show avatar when signed in, otherwise show auth buttons */}
+            <AuthArea />
+          </div>
         </div>
       </nav>
 
@@ -395,7 +408,7 @@ export default function BloodBridgeRedesign() {
                 <Link href="/profile" className="hover:text-red-600 transition-colors">Profile</Link>
               </div>
               <div>
-                © 2024 BloodBridge
+                © 2025 BloodBridge
               </div>
             </div>
           </footer>
@@ -413,4 +426,37 @@ function CheckCircleIcon() {
       </svg>
     </div>
   )
+}
+
+function AuthArea() {
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    const id = localStorage.getItem('userId');
+    setSignedIn(!!id);
+  }, []);
+
+  if (signedIn) {
+    return <UserAvatarMenu />;
+  }
+
+  return (
+    <div className="flex items-center gap-2 md:gap-3">
+      <Link href="/auth/signin">
+        <Button 
+          variant="ghost" 
+          className="text-gray-700 hover:text-red-600 font-semibold text-sm md:text-base px-3 md:px-4 py-2 rounded-lg hover:bg-red-50 transition-all duration-200"
+        >
+          Sign In
+        </Button>
+      </Link>
+      <Link href="/auth/signup">
+        <Button 
+          className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-semibold rounded-full px-5 md:px-7 py-2 shadow-[0_4px_12px_rgba(220,38,38,0.3)] hover:shadow-[0_6px_20px_rgba(220,38,38,0.4)] transition-all duration-200 hover:scale-105 text-sm md:text-base"
+        >
+          Sign Up
+        </Button>
+      </Link>
+    </div>
+  );
 }

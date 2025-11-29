@@ -49,14 +49,17 @@ export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Desktop Sidebar */}
       <aside className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
-        <div className="flex flex-col flex-grow bg-white border-r border-gray-200 shadow-sm">
-          {/* Logo */}
-          <div className="flex items-center gap-2 px-6 py-6">
-            <Droplet className="h-8 w-8 text-emergency-600" fill="currentColor" />
-            <span className="text-2xl font-bold text-gray-900">BloodBridge</span>
-          </div>
+        <div className="flex flex-col flex-grow bg-white border-r border-gray-200/60 shadow-sm">
+          {/* Logo - Enhanced */}
+          <Link href="/" className="flex items-center gap-3 px-6 py-6 group hover:bg-red-50 transition-colors duration-200 rounded-lg mx-2">
+            <div className="relative">
+              <div className="absolute inset-0 bg-red-500 rounded-full opacity-10 group-hover:opacity-20 blur-sm transition-all"></div>
+              <Droplet className="h-8 w-8 text-red-600 group-hover:text-red-700 transition-colors relative" fill="currentColor" />
+            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent group-hover:from-red-600 group-hover:to-red-700 transition-all">BloodBridge</span>
+          </Link>
 
-          <Separator />
+          <Separator className="bg-gray-200/50" />
 
           {/* Role Toggle */}
           <div className="px-4 py-4">
@@ -66,7 +69,7 @@ export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
           <Separator />
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2">
+          <nav className="flex-1 px-3 py-6 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
@@ -76,13 +79,13 @@ export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
                   <Button
                     variant={isActive ? "default" : "ghost"}
                     className={cn(
-                      "w-full justify-start gap-3 text-base",
+                      "w-full justify-start gap-3 text-sm font-medium rounded-lg transition-all duration-200",
                       isActive 
-                        ? "bg-emergency-600 hover:bg-emergency-700 text-white" 
-                        : "text-gray-700 hover:bg-gray-100"
+                        ? "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-md hover:shadow-lg" 
+                        : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                     )}
                   >
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-5 w-5 flex-shrink-0" />
                     {item.label}
                   </Button>
                 </Link>
@@ -93,15 +96,15 @@ export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
           <Separator />
 
           {/* Bottom Actions */}
-          <div className="px-4 py-4 space-y-2">
+          <div className="px-3 py-4 space-y-1">
             <Link href="/profile">
               <Button 
                 variant="ghost" 
                 className={cn(
-                  "w-full justify-start gap-3",
+                  "w-full justify-start gap-3 text-sm font-medium rounded-lg transition-all duration-200",
                   pathname === "/profile" 
-                    ? "bg-gray-100 text-gray-900" 
-                    : "text-gray-700"
+                    ? "bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md hover:shadow-lg" 
+                    : "text-gray-700 hover:bg-gray-100"
                 )}
               >
                 <User className="h-5 w-5" />
@@ -112,10 +115,10 @@ export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
               <Button 
                 variant="ghost" 
                 className={cn(
-                  "w-full justify-start gap-3",
+                  "w-full justify-start gap-3 text-sm font-medium rounded-lg transition-all duration-200",
                   pathname === "/settings" 
-                    ? "bg-gray-100 text-gray-900" 
-                    : "text-gray-700"
+                    ? "bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md hover:shadow-lg" 
+                    : "text-gray-700 hover:bg-gray-100"
                 )}
               >
                 <Settings className="h-5 w-5" />
@@ -128,18 +131,21 @@ export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
       </aside>
 
       {/* Mobile Header */}
-      <header className="md:hidden bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
+      <header className="md:hidden bg-white border-b border-gray-200/60 shadow-sm sticky top-0 z-10">
         <div className="flex items-center justify-between px-4 py-3">
-          <Link href="/" className="flex items-center gap-2">
-            <Droplet className="h-6 w-6 text-emergency-600" fill="currentColor" />
-            <span className="text-xl font-bold text-gray-900">BloodBridge</span>
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="relative">
+              <div className="absolute inset-0 bg-red-500 rounded-full opacity-10 group-hover:opacity-20 blur-sm transition-all"></div>
+              <Droplet className="h-6 w-6 text-red-600 group-hover:text-red-700 relative transition-colors" fill="currentColor" />
+            </div>
+            <span className="text-lg font-bold text-gray-900">BloodBridge</span>
           </Link>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="hover:bg-red-50 hover:text-red-600 transition-colors">
               <Bell className="h-5 w-5" />
             </Button>
             <Link href="/settings">
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="hover:bg-red-50 hover:text-red-600 transition-colors">
                 <Settings className="h-5 w-5" />
               </Button>
             </Link>
@@ -159,7 +165,7 @@ export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 shadow-lg z-10">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200/60 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] z-10">
         <div className="grid grid-cols-5 gap-0.5 px-1 py-2">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -170,8 +176,10 @@ export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
                 <Button
                   variant="ghost"
                   className={cn(
-                    "w-full flex-col h-14 gap-0.5 px-1",
-                    isActive ? "text-emergency-600" : "text-gray-600"
+                    "w-full flex-col h-14 gap-0.5 px-1 rounded-lg transition-all duration-200 text-xs font-medium",
+                    isActive 
+                      ? "text-red-600 bg-red-50 font-semibold" 
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                   )}
                 >
                   <Icon className="h-5 w-5" />
@@ -185,8 +193,10 @@ export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
             <Button
               variant="ghost"
               className={cn(
-                "w-full flex-col h-14 gap-0.5 px-1",
-                pathname === "/profile" ? "text-emergency-600" : "text-gray-600"
+                "w-full flex-col h-14 gap-0.5 px-1 rounded-lg transition-all duration-200 text-xs font-medium",
+                pathname === "/profile" 
+                  ? "text-red-600 bg-red-50 font-semibold" 
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               )}
             >
               <User className="h-5 w-5" />
