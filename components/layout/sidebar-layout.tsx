@@ -11,7 +11,6 @@ import {
     FileText,
     Heart,
     LayoutDashboard,
-    LogOut,
     MessageSquare,
     Search,
     Settings,
@@ -123,12 +122,7 @@ export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
                 Settings
               </Button>
             </Link>
-            <Link href="/">
-              <Button variant="ghost" className="w-full justify-start gap-3 text-gray-700">
-                <LogOut className="h-5 w-5" />
-                Logout
-              </Button>
-            </Link>
+
           </div>
         </div>
       </aside>

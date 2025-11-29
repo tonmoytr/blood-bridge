@@ -67,7 +67,7 @@ export default function DonorMessagesPage() {
                       <div className="flex items-start gap-3">
                         <Avatar>
                           <AvatarFallback className="bg-emergency-600 text-white">
-                            {conv.seekerName.split(' ').map(n => n[0]).join('')}
+                            {(conv.seekerName || 'User').split(' ').map(n => n[0]).join('')}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
@@ -95,7 +95,7 @@ export default function DonorMessagesPage() {
                 <div className="flex items-center gap-3">
                   <Avatar>
                     <AvatarFallback className="bg-emergency-600 text-white">
-                      {selectedConversation.seekerName.split(' ').map(n => n[0]).join('')}
+                      {(selectedConversation.seekerName || 'User').split(' ').map(n => n[0]).join('')}
                     </AvatarFallback>
                   </Avatar>
                   <div>

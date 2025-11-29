@@ -1,3 +1,4 @@
+
 "use client";
 
 import { BloodGroupBadge } from "@/components/features";
@@ -9,24 +10,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { bangladeshLocations } from "@/lib/locations";
 import { IRequest, IUser } from "@/types/database";
 import { formatDistanceToNow } from "date-fns";
 import {
+    Activity,
     Award,
     Calendar,
     CheckCircle2,
     Clock,
     Droplet,
     Edit,
+    FileText,
     Heart,
     Loader2,
     Mail,
     MapPin,
     Phone,
     Save,
-    Shield,
     User,
     X
 } from "lucide-react";
@@ -37,17 +40,25 @@ import { toast } from "sonner";
 export default function UnifiedProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<IUser | null>(null);
-  const [donations, setDonations] = useState<IRequest[]>([]);
+  const [donorHistory, setDonorHistory] = useState<IRequest[]>([]);
+  const [seekerHistory, setSeekerHistory] = useState<IRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    phone: "",
     email: "",
     division: "",
     district: "",
     thana: "",
+    isAvailable: true,
   });
+
+  // Helper to safely parse dates
+  const parseDate = (dateValue: any) => {
+    if (!dateValue) return null;
+    const date = new Date(dateValue);
+    return isNaN(date.getTime()) ? null : date;
+  };
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -58,25 +69,32 @@ export default function UnifiedProfilePage() {
           return;
         }
 
-        // Fetch User Data
+        // 1. Fetch User Data
         const userRes = await fetch(`/api/users/${userId}`);
         if (!userRes.ok) throw new Error("Failed to fetch user profile");
         const userData = await userRes.json();
-        setUser(userData);
+        setUser(userData.user);
         setFormData({
-          name: userData.name,
-          phone: userData.phone,
-          email: userData.email || "",
-          division: userData.location.division,
-          district: userData.location.district,
-          thana: userData.location.thana,
+          name: userData.user.name,
+          email: userData.user.email || "",
+          division: userData.user.location?.division || "",
+          district: userData.user.location?.district || "",
+          thana: userData.user.location?.thana || "",
+          isAvailable: userData.user.isAvailable ?? true,
         });
 
-        // Fetch Donation History
-        const donationsRes = await fetch(`/api/requests?acceptedDonorId=${userId}&status=COMPLETED`);
-        if (donationsRes.ok) {
-          const donationsData = await donationsRes.json();
-          setDonations(donationsData.requests || []);
+        // 2. Fetch Donor History (Completed missions)
+        const donorRes = await fetch(`/api/requests?acceptedDonorId=${userId}&status=COMPLETED`);
+        if (donorRes.ok) {
+          const donorData = await donorRes.json();
+          setDonorHistory(donorData.requests || []);
+        }
+
+        // 3. Fetch Seeker History (My requests)
+        const seekerRes = await fetch(`/api/requests?seekerId=${userId}`);
+        if (seekerRes.ok) {
+          const seekerData = await seekerRes.json();
+          setSeekerHistory(seekerData.requests || []);
         }
 
       } catch (error) {
@@ -100,6 +118,7 @@ export default function UnifiedProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formData.name,
+          isAvailable: formData.isAvailable,
           location: {
             division: formData.division,
             district: formData.district,
@@ -111,7 +130,7 @@ export default function UnifiedProfilePage() {
       if (!response.ok) throw new Error("Failed to update profile");
       
       const updatedUser = await response.json();
-      setUser(updatedUser);
+      setUser(updatedUser.user);
       setIsEditing(false);
       toast.success("Profile updated successfully");
     } catch (error) {
@@ -123,11 +142,11 @@ export default function UnifiedProfilePage() {
     if (user) {
       setFormData({
         name: user.name,
-        phone: user.phone,
         email: user.email || "",
-        division: user.location.division,
-        district: user.location.district,
-        thana: user.location.thana,
+        division: user.location?.division || "",
+        district: user.location?.district || "",
+        thana: user.location?.thana || "",
+        isAvailable: user.isAvailable ?? true,
       });
     }
     setIsEditing(false);
@@ -145,7 +164,7 @@ export default function UnifiedProfilePage() {
 
   if (!user) return null;
 
-  const lastDonation = user.lastDonationDate ? new Date(user.lastDonationDate) : null;
+  const lastDonation = parseDate(user.lastDonationDate);
   const nextEligibleDate = lastDonation 
     ? new Date(lastDonation.getTime() + 90 * 24 * 60 * 60 * 1000) // 90 days cooldown
     : new Date();
@@ -153,18 +172,32 @@ export default function UnifiedProfilePage() {
   const daysUntilEligible = Math.ceil((nextEligibleDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
   const isEligible = daysUntilEligible <= 0;
 
+  // Calculate Seeker Stats
+  const totalRequests = seekerHistory.length;
+  const fulfilledRequests = seekerHistory.filter(r => r.status === 'COMPLETED').length;
+
   return (
     <SidebarLayout userType="donor">
       <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
-        <div className="max-w-6xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
-              <p className="text-gray-600 mt-1">Manage your account and preferences</p>
+        <div className="max-w-6xl mx-auto space-y-8">
+          
+          {/* Header Section */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="h-20 w-20 rounded-full bg-gradient-to-br from-emergency-500 to-emergency-700 flex items-center justify-center text-white text-3xl font-bold shadow-lg">
+                {(user.name || 'User').split(' ').map(n => n[0]).join('')}
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">{user.name}</h1>
+                <div className="flex items-center gap-2 mt-1 text-gray-600">
+                  <MapPin className="h-4 w-4" />
+                  <span>{user.location?.thana || 'Unknown'}, {user.location?.district || 'Unknown'}</span>
+                </div>
+              </div>
             </div>
+            
             {!isEditing ? (
-              <Button onClick={() => setIsEditing(true)} className="bg-emergency-600 hover:bg-emergency-700">
+              <Button onClick={() => setIsEditing(true)} className="bg-white text-gray-900 border border-gray-200 hover:bg-gray-50 shadow-sm">
                 <Edit className="mr-2 h-4 w-4" />
                 Edit Profile
               </Button>
@@ -182,129 +215,79 @@ export default function UnifiedProfilePage() {
             )}
           </div>
 
-          {/* Tabs */}
+          {/* Main Tabs */}
           <Tabs defaultValue="personal" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2 lg:grid-cols-3">
-              <TabsTrigger value="personal">Personal Info</TabsTrigger>
-              <TabsTrigger value="donor">Donor Profile</TabsTrigger>
-              {/* Seeker profile can be added later if needed */}
+            <TabsList className="grid w-full grid-cols-3 bg-gray-100 p-1 rounded-xl">
+              <TabsTrigger value="personal" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Personal Info</TabsTrigger>
+              <TabsTrigger value="donor" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Donor Info</TabsTrigger>
+              <TabsTrigger value="seeker" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Seeker Info</TabsTrigger>
             </TabsList>
 
-            {/* Personal Info Tab */}
-            <TabsContent value="personal" className="space-y-6">
-              {/* Account Overview Card */}
-              <Card className="border-2 border-emergency-200 bg-gradient-to-br from-emergency-50 to-white">
-                <CardHeader>
-                  <div className="flex items-center gap-4">
-                    <div className="h-20 w-20 rounded-full bg-emergency-600 flex items-center justify-center text-white text-3xl font-bold">
-                      {user.name.split(' ').map(n => n[0]).join('')}
-                    </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-2xl">{user.name}</CardTitle>
-                      <CardDescription className="text-base mt-1">
-                        Member since {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                      </CardDescription>
-                      <div className="flex gap-2 mt-2">
-                        {user.isAvailable && (
-                          <Badge className="bg-emergency-600 text-white">
-                            <Droplet className="h-3 w-3 mr-1" fill="currentColor" />
-                            Donor
-                          </Badge>
-                        )}
-                        <Badge className="bg-trust-600 text-white">
-                          <Heart className="h-3 w-3 mr-1" />
-                          Seeker
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
-              </Card>
-
-              {/* Personal Information */}
+            {/* 1. Personal Info Tab */}
+            <TabsContent value="personal" className="space-y-6 animate-in fade-in-50 duration-300">
               <Card>
                 <CardHeader>
-                  <CardTitle>Personal Information</CardTitle>
-                  <CardDescription>Your basic profile details and contact information</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5 text-gray-500" />
+                    Basic Information
+                  </CardTitle>
+                  <CardDescription>Your personal details and contact information</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid md:grid-cols-2 gap-6">
-                    {/* Full Name */}
                     <div className="space-y-2">
-                      <Label htmlFor="name" className="text-sm font-semibold text-gray-700">
-                        Full Name *
-                      </Label>
+                      <Label className="text-sm font-medium text-gray-500">Full Name</Label>
                       {isEditing ? (
-                        <Input
-                          id="name"
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          className="text-base"
+                        <Input 
+                          value={formData.name} 
+                          onChange={(e) => setFormData({...formData, name: e.target.value})} 
                         />
                       ) : (
-                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                          <User className="h-5 w-5 text-gray-400" />
-                          <p className="font-semibold text-gray-900">{user.name}</p>
-                        </div>
+                        <p className="text-lg font-medium text-gray-900">{user.name}</p>
                       )}
                     </div>
 
-                    {/* Email */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-semibold text-gray-700">Email Address</Label>
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <Mail className="h-5 w-5 text-gray-400" />
-                        <div className="flex-1">
-                          <p className="text-gray-900">{user.email || "Not provided"}</p>
-                        </div>
+                      <Label className="text-sm font-medium text-gray-500">Email Address</Label>
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-gray-400" />
+                        <p className="text-lg font-medium text-gray-900">{user.email || "Not provided"}</p>
                       </div>
                     </div>
 
-                    {/* Phone */}
                     <div className="space-y-2">
-                      <Label htmlFor="phone" className="text-sm font-semibold text-gray-700">
-                        Phone Number *
-                      </Label>
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <Phone className="h-5 w-5 text-gray-400" />
-                        <p className="font-mono font-semibold text-gray-900">{user.phone}</p>
+                      <Label className="text-sm font-medium text-gray-500">Phone Number</Label>
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-gray-400" />
+                        <p className="text-lg font-medium text-gray-900 font-mono">{user.phone}</p>
                       </div>
+                      <p className="text-xs text-gray-400">Cannot be changed</p>
                     </div>
 
-                    {/* Member Since */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-semibold text-gray-700">Member Since</Label>
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <Calendar className="h-5 w-5 text-gray-400" />
-                        <div>
-                          <p className="font-semibold text-gray-900">
-                            {new Date(user.createdAt).toLocaleDateString('en-US', { 
-                              year: 'numeric', 
-                              month: 'long', 
-                              day: 'numeric' 
-                            })}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {formatDistanceToNow(new Date(user.createdAt), { addSuffix: true })}
-                          </p>
-                        </div>
+                      <Label className="text-sm font-medium text-gray-500">Member Since</Label>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        <p className="text-lg font-medium text-gray-900">
+                          {parseDate(user.createdAt)?.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) || 'Recently'}
+                        </p>
                       </div>
                     </div>
                   </div>
 
                   <Separator />
 
-                  {/* Location */}
                   <div className="space-y-4">
-                    <Label className="text-sm font-semibold text-gray-700">Location Information</Label>
+                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      Location Details
+                    </h3>
                     {isEditing ? (
                       <div className="grid md:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="division" className="text-xs text-gray-600">Division *</Label>
+                          <Label className="text-xs">Division</Label>
                           <Select value={formData.division} onValueChange={(value) => setFormData({ ...formData, division: value })}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
                               {bangladeshLocations.divisions.map((div) => (
                                 <SelectItem key={div} value={div}>{div}</SelectItem>
@@ -313,271 +296,261 @@ export default function UnifiedProfilePage() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="district" className="text-xs text-gray-600">District *</Label>
-                          <Input
-                            id="district"
-                            value={formData.district}
-                            onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                          />
+                          <Label className="text-xs">District</Label>
+                          <Input value={formData.district} onChange={(e) => setFormData({ ...formData, district: e.target.value })} />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="thana" className="text-xs text-gray-600">Thana *</Label>
-                          <Input
-                            id="thana"
-                            value={formData.thana}
-                            onChange={(e) => setFormData({ ...formData, thana: e.target.value })}
-                          />
+                          <Label className="text-xs">Thana</Label>
+                          <Input value={formData.thana} onChange={(e) => setFormData({ ...formData, thana: e.target.value })} />
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                        <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
-                        <div>
-                          <p className="font-semibold text-gray-900">
-                            {user.location.thana}, {user.location.district}
-                          </p>
-                          <p className="text-sm text-gray-600">{user.location.division} Division, Bangladesh</p>
+                      <div className="grid md:grid-cols-3 gap-4">
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500">Division</p>
+                          <p className="font-medium text-gray-900">{user.location?.division || 'N/A'}</p>
+                        </div>
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500">District</p>
+                          <p className="font-medium text-gray-900">{user.location?.district || 'N/A'}</p>
+                        </div>
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500">Thana</p>
+                          <p className="font-medium text-gray-900">{user.location?.thana || 'N/A'}</p>
                         </div>
                       </div>
                     )}
-                  </div>
-
-                  {user.isAvailable && (
-                    <>
-                      <Separator />
-                      {/* Blood Group - Read Only */}
-                      <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-gray-700">Blood Group</Label>
-                        <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                          <Droplet className="h-5 w-5 text-emergency-600" fill="currentColor" />
-                          <div className="flex-1">
-                            <BloodGroupBadge bloodGroup={user.bloodGroup} size="md" />
-                          </div>
-                          <Badge variant="outline" className="text-gray-600">
-                            <Shield className="h-3 w-3 mr-1" />
-                            Cannot be changed
-                          </Badge>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Account Security */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Account Security</CardTitle>
-                  <CardDescription>Manage your password and security settings</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <div>
-                      <p className="font-semibold text-gray-900">Password</p>
-                      <p className="text-sm text-gray-600">Last changed 3 months ago</p>
-                    </div>
-                    <Button variant="outline">Change Password</Button>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            {/* Donor Profile Tab */}
-            {user.isAvailable && (
-              <TabsContent value="donor" className="space-y-6">
-                {/* Stats Overview */}
-                <div className="grid md:grid-cols-4 gap-4">
-                  <Card className="border-2 border-emergency-200">
-                    <CardContent className="pt-6">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 bg-emergency-100 rounded-lg">
-                          <Heart className="h-6 w-6 text-emergency-600" fill="currentColor" />
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold text-gray-900">{user.totalDonations}</p>
-                          <p className="text-sm text-gray-600">Lives Saved</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 bg-success-100 rounded-lg">
-                          <CheckCircle2 className="h-6 w-6 text-success-600" />
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold text-gray-900">100%</p>
-                          <p className="text-sm text-gray-600">Completion</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 bg-warning-100 rounded-lg">
-                          <Clock className="h-6 w-6 text-warning-600" />
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold text-gray-900">18m</p>
-                          <p className="text-sm text-gray-600">Avg Response</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 bg-cooldown-100 rounded-lg">
-                          <Award className="h-6 w-6 text-cooldown-600" />
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold text-gray-900">{user.badges.length}</p>
-                          <p className="text-sm text-gray-600">Badges</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Blood Group & Eligibility */}
-                <Card>
+            {/* 2. Donor Info Tab */}
+            <TabsContent value="donor" className="space-y-6 animate-in fade-in-50 duration-300">
+              {/* Stats & Availability */}
+              <div className="grid md:grid-cols-3 gap-4">
+                <Card className="md:col-span-2">
                   <CardHeader>
-                    <CardTitle>Donor Information</CardTitle>
-                    <CardDescription>Your blood donation details and eligibility status</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <div className="p-4 bg-emergency-50 rounded-lg border-2 border-emergency-200">
-                        <Label className="mb-3 block text-sm font-semibold">Blood Group</Label>
-                        <BloodGroupBadge bloodGroup={user.bloodGroup} size="lg" />
+                    <CardTitle className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Droplet className="h-5 w-5 text-emergency-600" fill="currentColor" />
+                        Donor Status
                       </div>
-
-                      <div className="p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
-                        <Label className="mb-3 block text-sm font-semibold">Donation Eligibility</Label>
-                        {!isEligible ? (
-                          <Badge className="bg-cooldown-600 text-white text-lg px-4 py-2">
-                            <Clock className="h-4 w-4 mr-2" />
-                            Eligible in {daysUntilEligible} days
+                      {isEditing && (
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="availability" className="text-sm font-normal text-gray-600">Available to donate</Label>
+                          <Switch 
+                            id="availability"
+                            checked={formData.isAvailable}
+                            onCheckedChange={(checked) => setFormData({...formData, isAvailable: checked})}
+                          />
+                        </div>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-8">
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Blood Group</p>
+                        {user.bloodGroup ? <BloodGroupBadge bloodGroup={user.bloodGroup} size="lg" /> : <span className="text-gray-500">N/A</span>}
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Current Status</p>
+                        {user.isAvailable ? (
+                          <Badge className="bg-success-100 text-success-700 hover:bg-success-100 border-success-200">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Available
                           </Badge>
                         ) : (
-                          <Badge className="bg-trust-600 text-white text-lg px-4 py-2">
-                            <CheckCircle2 className="h-4 w-4 mr-2" />
-                            Ready to Donate
+                          <Badge variant="outline" className="text-gray-500">
+                            Unavailable
                           </Badge>
                         )}
                       </div>
                     </div>
-
-                    <Separator />
-
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                        <Calendar className="h-5 w-5 text-gray-400" />
-                        <div>
-                          <p className="text-sm text-gray-600">Last Donation</p>
-                          <p className="font-semibold text-gray-900">
-                            {user.lastDonationDate 
-                              ? formatDistanceToNow(new Date(user.lastDonationDate), { addSuffix: true })
-                              : "Never"}
-                          </p>
-                          {user.lastDonationDate && (
-                            <p className="text-xs text-gray-500">
-                              {new Date(user.lastDonationDate).toLocaleDateString()}
-                            </p>
-                          )}
-                        </div>
+                    <Separator className="my-6" />
+                    <div className="flex items-center gap-4">
+                      <div className={`p-3 rounded-full ${isEligible ? 'bg-success-100' : 'bg-cooldown-100'}`}>
+                        <Clock className={`h-6 w-6 ${isEligible ? 'text-success-600' : 'text-cooldown-600'}`} />
                       </div>
-
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                        <Calendar className="h-5 w-5 text-gray-400" />
-                        <div>
-                          <p className="text-sm text-gray-600">Next Eligible Date</p>
-                          <p className="font-semibold text-gray-900">
-                            {nextEligibleDate.toLocaleDateString()}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {isEligible ? "Now" : formatDistanceToNow(nextEligibleDate, { addSuffix: true })}
-                          </p>
-                        </div>
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {isEligible ? "You are eligible to donate!" : `Eligible in ${daysUntilEligible} days`}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          Next eligible date: {nextEligibleDate.toLocaleDateString()}
+                        </p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Donation History */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent Donations</CardTitle>
-                    <CardDescription>Your latest blood donations</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {donations.length > 0 ? (
-                      <div className="space-y-4">
-                        {donations.map((donation) => (
-                          <div key={donation._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                            <div className="flex items-center gap-4">
-                              <div className="p-3 bg-trust-100 rounded-lg">
-                                <Heart className="h-6 w-6 text-trust-600" fill="currentColor" />
-                              </div>
-                              <div>
-                                <p className="font-semibold text-gray-900">{donation.patientName}</p>
-                                <p className="text-sm text-gray-600">{donation.hospitalName}</p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {new Date(donation.completedAt!).toLocaleDateString()} • {donation.unitsNeeded} unit{donation.unitsNeeded > 1 ? 's' : ''}
-                                </p>
-                              </div>
-                            </div>
-                            <BloodGroupBadge bloodGroup={donation.bloodGroup} size="sm" />
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        No donations yet. Start your journey today!
-                      </div>
-                    )}
+                <Card className="bg-gradient-to-br from-emergency-50 to-white border-emergency-100">
+                  <CardContent className="pt-6 text-center space-y-6">
+                    <div>
+                      <p className="text-4xl font-bold text-emergency-600">{user.totalDonations ?? 0}</p>
+                      <p className="text-sm font-medium text-emergency-800">Lives Saved</p>
+                    </div>
+                    <Separator className="bg-emergency-200" />
+                    <div>
+                      <p className="text-4xl font-bold text-trust-600">{user.badges?.length ?? 0}</p>
+                      <p className="text-sm font-medium text-trust-800">Badges Earned</p>
+                    </div>
                   </CardContent>
                 </Card>
+              </div>
 
-                {/* Badges */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Award className="h-5 w-5 text-cooldown-600" />
-                      Badges & Achievements
-                    </CardTitle>
-                    <CardDescription>Recognition for your life-saving contributions</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {user.badges.length > 0 ? (
-                      <div className="grid md:grid-cols-2 gap-3">
-                        {user.badges.map((badge) => (
-                          <div 
-                            key={badge} 
-                            className="flex items-center gap-3 p-4 border-2 border-cooldown-200 bg-cooldown-50 rounded-lg"
-                          >
-                            <Award className="h-8 w-8 text-cooldown-600" />
+              {/* Badges */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Award className="h-5 w-5 text-cooldown-600" />
+                    Achievements
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(user.badges?.length ?? 0) > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {(user.badges || []).map((badge) => (
+                        <div key={badge} className="flex flex-col items-center p-4 bg-gray-50 rounded-xl border border-gray-100 text-center">
+                          <div className="h-12 w-12 rounded-full bg-cooldown-100 flex items-center justify-center mb-3 text-cooldown-600">
+                            <Award className="h-6 w-6" />
+                          </div>
+                          <p className="font-semibold text-gray-900 text-sm">{badge}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Award className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                      <p>Complete your first donation to earn badges!</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Donation History */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-gray-500" />
+                    Donation History
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {donorHistory.length > 0 ? (
+                    <div className="space-y-4">
+                      {donorHistory.map((donation) => (
+                        <div key={donation._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className="p-3 bg-trust-100 rounded-lg">
+                              <Heart className="h-6 w-6 text-trust-600" fill="currentColor" />
+                            </div>
                             <div>
-                              <p className="font-semibold text-cooldown-900">{badge}</p>
-                              <p className="text-xs text-cooldown-700">Earned</p>
+                              <p className="font-semibold text-gray-900">{donation.patientName || 'Unknown Patient'}</p>
+                              <p className="text-sm text-gray-600">{donation.hospitalName || 'Unknown Hospital'}</p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {parseDate(donation.completedAt)?.toLocaleDateString() || 'Date unknown'}
+                              </p>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        Complete donations to earn badges!
-                      </div>
-                    )}
+                          <Badge variant="outline" className="border-trust-200 text-trust-700 bg-trust-50">
+                            {donation.unitsNeeded} Unit{donation.unitsNeeded > 1 ? 's' : ''}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-gray-500">
+                      <p>No donation history yet.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* 3. Seeker Info Tab */}
+            <TabsContent value="seeker" className="space-y-6 animate-in fade-in-50 duration-300">
+              {/* Seeker Stats */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <Card>
+                  <CardContent className="pt-6 flex items-center gap-4">
+                    <div className="p-4 bg-blue-100 rounded-full text-blue-600">
+                      <FileText className="h-8 w-8" />
+                    </div>
+                    <div>
+                      <p className="text-3xl font-bold text-gray-900">{totalRequests}</p>
+                      <p className="text-sm text-gray-600">Total Requests</p>
+                    </div>
                   </CardContent>
                 </Card>
-              </TabsContent>
-            )}
+                <Card>
+                  <CardContent className="pt-6 flex items-center gap-4">
+                    <div className="p-4 bg-green-100 rounded-full text-green-600">
+                      <CheckCircle2 className="h-8 w-8" />
+                    </div>
+                    <div>
+                      <p className="text-3xl font-bold text-gray-900">{fulfilledRequests}</p>
+                      <p className="text-sm text-gray-600">Requests Fulfilled</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Request History */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>My Requests</CardTitle>
+                  <CardDescription>History of blood requests you have posted</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {seekerHistory.length > 0 ? (
+                    <div className="space-y-4">
+                      {seekerHistory.map((request) => (
+                        <div key={request._id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className={`p-3 rounded-lg ${
+                              request.status === 'COMPLETED' ? 'bg-green-100 text-green-600' :
+                              request.status === 'CANCELLED' ? 'bg-red-100 text-red-600' :
+                              'bg-blue-100 text-blue-600'
+                            }`}>
+                              <Activity className="h-6 w-6" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900">{request.patientName}</p>
+                              <p className="text-sm text-gray-600">{request.hospitalName}</p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Posted {formatDistanceToNow(new Date(request.createdAt), { addSuffix: true })}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <Badge className={`mb-1 ${
+                              request.status === 'COMPLETED' ? 'bg-green-600' :
+                              request.status === 'CANCELLED' ? 'bg-red-600' :
+                              'bg-blue-600'
+                            }`}>
+                              {request.status}
+                            </Badge>
+                            <p className="text-xs text-gray-500">
+                              {request.unitsNeeded} Unit{request.unitsNeeded > 1 ? 's' : ''} • {request.bloodGroup}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-gray-500">
+                      <p className="mb-4">You haven't posted any requests yet.</p>
+                      <Button onClick={() => router.push('/request/new')} className="bg-emergency-600 hover:bg-emergency-700 text-white">
+                        <Activity className="mr-2 h-4 w-4" />
+                        Create a Request
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </div>
       </div>

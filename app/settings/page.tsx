@@ -11,8 +11,9 @@ export default function SettingsPage() {
   const router = useRouter();
 
   const handleLogout = () => {
-    // TODO: Implement actual logout logic (clear session, etc.)
-    router.push("/");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("userRole");
+    router.push("/auth/signin");
   };
 
   return (

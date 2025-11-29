@@ -491,7 +491,7 @@ export default function RequestDetailsPage() {
                         <div className="flex items-center gap-3">
                           {/* Avatar */}
                           <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center text-emergency-600 font-bold text-lg">
-                            {request.seekerName.split(' ').map((n: string) => n[0]).join('')}
+                            {(request.seekerName || 'User').split(' ').map((n: string) => n[0]).join('')}
                           </div>
                           <div className="flex-1">
                             <DialogTitle className="text-white text-lg">{request.seekerName}</DialogTitle>
@@ -519,7 +519,7 @@ export default function RequestDetailsPage() {
                                   <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${
                                     isOwn ? "bg-emergency-600" : "bg-gray-600"
                                   }`}>
-                                    {msg.senderName.split(' ').map((n: string) => n[0]).join('')}
+                                    {(msg.senderName || 'User').split(' ').map((n: string) => n[0]).join('')}
                                   </div>
                                 </div>
 

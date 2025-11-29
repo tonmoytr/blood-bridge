@@ -67,7 +67,7 @@ export default function SeekerMessagesPage() {
                       <div className="flex items-start gap-3">
                         <Avatar>
                           <AvatarFallback className="bg-trust-600 text-white">
-                            {conv.donorName.split(' ').map(n => n[0]).join('')}
+                            {(conv.donorName || 'User').split(' ').map(n => n[0]).join('')}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
@@ -95,7 +95,7 @@ export default function SeekerMessagesPage() {
                 <div className="flex items-center gap-3">
                   <Avatar>
                     <AvatarFallback className="bg-trust-600 text-white">
-                      {selectedConversation.donorName.split(' ').map(n => n[0]).join('')}
+                      {(selectedConversation.donorName || 'User').split(' ').map(n => n[0]).join('')}
                     </AvatarFallback>
                   </Avatar>
                   <div>
