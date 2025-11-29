@@ -166,7 +166,7 @@ export default function UnifiedProfilePage() {
 
   const lastDonation = parseDate(user.lastDonationDate);
   const nextEligibleDate = lastDonation 
-    ? new Date(lastDonation.getTime() + 90 * 24 * 60 * 60 * 1000) // 90 days cooldown
+    ? new Date(lastDonation.getTime() + 56 * 24 * 60 * 60 * 1000) // 56 days cooldown (consistent with dashboard)
     : new Date();
     
   const daysUntilEligible = Math.ceil((nextEligibleDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));

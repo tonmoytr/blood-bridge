@@ -124,6 +124,18 @@ export async function GET(req: NextRequest) {
       filter.seekerId = seekerId;
     }
 
+    // Exclude requests from a specific seeker (for Donor Feed)
+    const excludeSeekerId = searchParams.get('excludeSeekerId');
+    if (excludeSeekerId) {
+      filter.seekerId = { $ne: excludeSeekerId };
+    }
+
+    // Filter by acceptedDonorId (for My Missions)
+    const acceptedDonorId = searchParams.get('acceptedDonorId');
+    if (acceptedDonorId) {
+      filter.acceptedDonorId = acceptedDonorId;
+    }
+
     // Sorting
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const sortOrder = searchParams.get('sortOrder') === 'asc' ? 1 : -1;

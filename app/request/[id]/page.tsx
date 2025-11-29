@@ -96,6 +96,14 @@ export default function RequestDetailsPage() {
     }
   }, [params.id]);
 
+  const getAcceptedDonorId = (req: any) => {
+    if (!req?.acceptedDonorId) return null;
+    if (typeof req.acceptedDonorId === 'object') {
+      return req.acceptedDonorId._id;
+    }
+    return req.acceptedDonorId;
+  };
+
   const handleAcceptRequest = async () => {
     try {
       setIsLoading(true);
@@ -371,7 +379,7 @@ export default function RequestDetailsPage() {
                   </div>
 
                   {/* Contact Information - Show if donor has accepted */}
-                  {(hasAccepted || (request.status === 'ACCEPTED' && request.acceptedDonorId === 'temp-donor-id')) ? (
+                  {(hasAccepted || (request.status === 'ACCEPTED' && getAcceptedDonorId(request) === localStorage.getItem("userId"))) ? (
                     <div className="flex items-start gap-3">
                       <Phone className="h-5 w-5 text-trust-600 mt-0.5" />
                       <div>
@@ -439,7 +447,7 @@ export default function RequestDetailsPage() {
                   )}
 
                   {/* Accepted State - Show when user has accepted */}
-                  {(hasAccepted || (request.status === 'ACCEPTED' && request.acceptedDonorId === 'temp-donor-id')) && (
+                  {(hasAccepted || (request.status === 'ACCEPTED' && getAcceptedDonorId(request) === localStorage.getItem("userId"))) && (
                     <div className="bg-trust-50 border border-trust-200 rounded-lg p-4">
                       <div className="flex items-center gap-2 text-trust-700">
                         <CheckCircle2 className="h-5 w-5" />
@@ -452,7 +460,7 @@ export default function RequestDetailsPage() {
                   )}
 
                   {/* Already Accepted by Another Donor */}
-                  {request.status === 'ACCEPTED' && request.acceptedDonorId !== 'temp-donor-id' && !hasAccepted && (
+                  {request.status === 'ACCEPTED' && getAcceptedDonorId(request) !== localStorage.getItem("userId") && !hasAccepted && (
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                       <div className="flex items-center gap-2 text-gray-700">
                         <AlertCircle className="h-5 w-5" />

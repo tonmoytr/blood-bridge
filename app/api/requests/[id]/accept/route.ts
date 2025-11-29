@@ -55,6 +55,36 @@ export async function PATCH(
       );
     }
 
+    // Check donor eligibility (cooldown period)
+    const User = (await import('@/models')).User;
+    const donor = await User.findById(donorId);
+    
+    if (!donor) {
+      return NextResponse.json(
+        { error: 'Donor not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if donor is in cooldown period
+    if (donor.lastDonationDate) {
+      const { isDonorEligible } = await import('@/lib/donor-utils');
+      if (!isDonorEligible(donor.lastDonationDate)) {
+        const daysSince = Math.floor(
+          (Date.now() - new Date(donor.lastDonationDate).getTime()) / (1000 * 60 * 60 * 24)
+        );
+        const daysRemaining = 56 - daysSince;
+        
+        return NextResponse.json(
+          { 
+            error: 'You are in cooldown period',
+            details: `You must wait ${daysRemaining} more days before donating again. Your safety is our priority.`
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // Update request with acceptance
     request.status = 'ACCEPTED';
     request.acceptedDonorId = donorId;

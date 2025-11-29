@@ -9,13 +9,16 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { IRequest } from "@/types/database";
+import { getCooldownStatusMessage, getNextEligibleDate, isDonorEligible } from "@/lib/donor-utils";
+import { IRequest, IUser } from "@/types/database";
 import { formatDistanceToNow } from "date-fns";
 import {
     AlertCircle,
     Building2,
+    Calendar,
     Clock,
     Droplet,
+    Heart,
     Loader2,
     MapPin,
     Search
@@ -26,6 +29,7 @@ import { toast } from "sonner";
 
 export default function DonorRequestsPage() {
   const [requests, setRequests] = useState<IRequest[]>([]);
+  const [donor, setDonor] = useState<IUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [bloodGroupFilter, setBloodGroupFilter] = useState("all");
@@ -35,14 +39,39 @@ export default function DonorRequestsPage() {
     const fetchRequests = async () => {
       try {
         setLoading(true);
-        const response = await fetch("/api/requests?status=OPEN&sortBy=urgency&sortOrder=desc");
+        const userId = localStorage.getItem("userId");
         
-        if (!response.ok) {
-          throw new Error("Failed to fetch requests");
+        if (!userId) {
+          toast.error("Please log in to view requests");
+          setLoading(false);
+          return;
         }
 
-        const data = await response.json();
-        setRequests(data.requests || []);
+        // Fetch donor data to check eligibility
+        const donorResponse = await fetch(`/api/users/${userId}`);
+        if (donorResponse.ok) {
+          const donorData = await donorResponse.json();
+          setDonor(donorData.user);
+          
+          // Only fetch requests if donor is eligible
+          if (isDonorEligible(donorData.user.lastDonationDate)) {
+            const queryParams = new URLSearchParams({
+              status: "OPEN",
+              sortBy: "urgency",
+              sortOrder: "desc",
+              excludeSeekerId: userId
+            });
+
+            const response = await fetch(`/api/requests?${queryParams.toString()}`);
+            
+            if (!response.ok) {
+              throw new Error("Failed to fetch requests");
+            }
+
+            const data = await response.json();
+            setRequests(data.requests || []);
+          }
+        }
       } catch (error: any) {
         console.error("Error fetching requests:", error);
         toast.error("Failed to load requests");
@@ -77,6 +106,81 @@ export default function DonorRequestsPage() {
               <Loader2 className="h-8 w-8 animate-spin text-emergency-600 mx-auto mb-4" />
               <p className="text-gray-600">Loading requests...</p>
             </div>
+          </div>
+        </div>
+      </SidebarLayout>
+    );
+  }
+
+  // Show cooldown message if donor is not eligible
+  if (donor && !isDonorEligible(donor.lastDonationDate)) {
+    const cooldownStatus = getCooldownStatusMessage(donor.lastDonationDate);
+    const nextDate = getNextEligibleDate(donor.lastDonationDate);
+    
+    return (
+      <SidebarLayout userType="donor">
+        <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
+          <div className="max-w-4xl mx-auto">
+            {/* Header */}
+            <div className="mb-6">
+              <h1 className="text-3xl font-bold text-gray-900">Emergency Blood Requests</h1>
+              <p className="text-gray-600 mt-1">Find people who need your help</p>
+            </div>
+
+            {/* Cooldown Card */}
+            <Card className="border-2 border-cooldown-200 bg-cooldown-50">
+              <CardContent className="p-8">
+                <div className="text-center space-y-6">
+                  <div className="flex justify-center">
+                    <div className="h-20 w-20 rounded-full bg-cooldown-100 flex items-center justify-center">
+                      <Clock className="h-10 w-10 text-cooldown-600 animate-pulse" />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h2 className="text-2xl font-bold text-cooldown-900 mb-2">
+                      {cooldownStatus.message}
+                    </h2>
+                    <p className="text-cooldown-700 mb-4">
+                      Your body is recovering from your last donation. Blood requests are hidden during this period for your safety.
+                    </p>
+                    {nextDate && (
+                      <div className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-cooldown-200">
+                        <Calendar className="h-5 w-5 text-cooldown-600" />
+                        <span className="text-cooldown-800">
+                          Next eligible date: <span className="font-semibold">
+                            {nextDate.toLocaleDateString('en-GB')}
+                          </span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-white p-6 rounded-lg border border-cooldown-200 text-left">
+                    <div className="flex items-start gap-3 mb-3">
+                      <Heart className="h-5 w-5 text-cooldown-600 mt-0.5" />
+                      <div>
+                        <h3 className="font-semibold text-cooldown-900 mb-1">Thank you for your contribution!</h3>
+                        <p className="text-sm text-cooldown-700">
+                          Your recent donation is helping save lives. Please take this time to rest and recover.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-cooldown-600 mt-0.5" />
+                      <div>
+                        <h3 className="font-semibold text-cooldown-900 mb-1">During cooldown:</h3>
+                        <ul className="text-sm text-cooldown-700 space-y-1 list-disc list-inside">
+                          <li>Blood requests are hidden</li>
+                          <li>You cannot accept new donation requests</li>
+                          <li>Your body needs time to replenish blood cells</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </SidebarLayout>

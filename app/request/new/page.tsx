@@ -16,12 +16,13 @@ import {
 } from "@/lib/locations";
 import { AlertCircle, ArrowLeft, Droplet, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 export default function NewRequestPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const [formData, setFormData] = useState({
     patientName: "",
     patientAge: "",
@@ -42,6 +43,33 @@ export default function NewRequestPage() {
   const [districts, setDistricts] = useState<string[]>([]);
   const [thanas, setThanas] = useState<string[]>([]);
 
+  useEffect(() => {
+    const fetchUser = async () => {
+      const userId = localStorage.getItem("userId");
+      if (!userId) {
+        toast.error("Please log in to post a request");
+        router.push("/auth/signin");
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/users/${userId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data.user);
+          // Pre-fill phone if available
+          if (data.user.phone) {
+            setFormData(prev => ({ ...prev, contactPhone: data.user.phone }));
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user:", error);
+      }
+    };
+
+    fetchUser();
+  }, [router]);
+
   const handleDivisionChange = (division: string) => {
     setFormData({ ...formData, division, district: "", thana: "" });
     setDistricts(getDistrictsByDivision(division));
@@ -55,21 +83,21 @@ export default function NewRequestPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      toast.error("You must be logged in to post a request");
+      return;
+    }
     setIsSubmitting(true);
 
     try {
-      // TODO: Get real seeker ID from auth
-      const seekerId = "temp-seeker-id";
-      const seekerName = "Current Seeker";
-
       const response = await fetch("/api/requests", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          seekerId,
-          seekerName,
+          seekerId: user._id,
+          seekerName: user.name,
           patientName: formData.patientName,
           patientAge: parseInt(formData.patientAge),
           bloodGroup: formData.bloodGroup,

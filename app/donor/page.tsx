@@ -1,15 +1,16 @@
 "use client";
 
 import {
-    DonorCard,
-    StatusBadge
+    DonorCard
 } from "@/components/features";
 import { SidebarLayout } from "@/components/layout/sidebar-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getCooldownStatusMessage, getNextEligibleDate, isDonorEligible } from "@/lib/donor-utils";
 import { IRequest, IUser } from "@/types/database";
 import {
+    AlertCircle,
     ArrowRight,
     Award,
     Calendar,
@@ -149,27 +150,74 @@ export default function DonorDashboard() {
                       <CardTitle className="text-2xl">Donor Status</CardTitle>
                       <CardDescription>Your current availability</CardDescription>
                     </div>
-                    <StatusBadge status={donor.status} className="text-lg px-4 py-2" />
+                    {isDonorEligible(donor.lastDonationDate) ? (
+                      <Badge className="text-lg px-4 py-2 bg-trust-600 hover:bg-trust-700">Active</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-lg px-4 py-2 border-cooldown-600 text-cooldown-700 bg-cooldown-50">
+                        In Cooldown
+                      </Badge>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="flex items-center justify-between bg-trust-50 p-6 rounded-lg border border-trust-200">
-                    <div className="flex items-center gap-4">
-                      <div className="h-14 w-14 rounded-full bg-trust-600 flex items-center justify-center">
-                        <Heart className="h-7 w-7 text-white" />
+                  {isDonorEligible(donor.lastDonationDate) ? (
+                    // Eligible - Show ready to donate
+                    <div className="flex items-center justify-between bg-trust-50 p-6 rounded-lg border border-trust-200">
+                      <div className="flex items-center gap-4">
+                        <div className="h-14 w-14 rounded-full bg-trust-600 flex items-center justify-center">
+                          <Heart className="h-7 w-7 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-lg text-trust-900">Ready to save lives!</p>
+                          <p className="text-sm text-trust-700">Check emergency requests near you</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold text-lg text-trust-900">Ready to save lives!</p>
-                        <p className="text-sm text-trust-700">Check emergency requests near you</p>
+                      <Link href="/donor/requests">
+                        <Button className="bg-trust-600 hover:bg-trust-700" size="lg">
+                          View Requests
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </div>
+                  ) : (
+                    // In Cooldown - Show countdown
+                    <div className="bg-cooldown-50 p-6 rounded-lg border-2 border-cooldown-200">
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className="h-14 w-14 rounded-full bg-cooldown-100 flex items-center justify-center flex-shrink-0">
+                          <Clock className="h-7 w-7 text-cooldown-600 animate-pulse" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-bold text-lg text-cooldown-900 mb-1">
+                            {getCooldownStatusMessage(donor.lastDonationDate).message}
+                          </p>
+                          <p className="text-sm text-cooldown-700 mb-3">
+                            Your body is recovering from your last donation. Thank you for your contribution!
+                          </p>
+                          {getNextEligibleDate(donor.lastDonationDate) && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Calendar className="h-4 w-4 text-cooldown-600" />
+                              <span className="text-cooldown-800">
+                                Next eligible date: <span className="font-semibold">
+                                  {getNextEligibleDate(donor.lastDonationDate)?.toLocaleDateString('en-GB')}
+                                </span>
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="bg-white p-4 rounded-lg border border-cooldown-200">
+                        <div className="flex items-center gap-2 text-cooldown-800 mb-2">
+                          <AlertCircle className="h-4 w-4" />
+                          <p className="text-sm font-semibold">During cooldown period:</p>
+                        </div>
+                        <ul className="text-sm text-cooldown-700 space-y-1 ml-6 list-disc">
+                          <li>Blood requests are hidden for your safety</li>
+                          <li>You cannot accept new donation requests</li>
+                          <li>Focus on rest and recovery</li>
+                        </ul>
                       </div>
                     </div>
-                    <Link href="/donor/requests">
-                      <Button className="bg-trust-600 hover:bg-trust-700" size="lg">
-                        View Requests
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    </Link>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
 
