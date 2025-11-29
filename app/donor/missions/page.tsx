@@ -18,8 +18,12 @@ export default function DonorMissionsPage() {
   useEffect(() => {
     const fetchMissions = async () => {
       try {
-        // TODO: Get real donor ID from auth
-        const donorId = "temp-donor-id";
+        const donorId = localStorage.getItem("userId");
+        if (!donorId) {
+          toast.error("Please log in to view missions");
+          setIsLoading(false);
+          return;
+        }
         const response = await fetch(`/api/requests?acceptedDonorId=${donorId}&status=ACCEPTED&sortBy=acceptedAt&sortOrder=desc`);
         
         if (!response.ok) {

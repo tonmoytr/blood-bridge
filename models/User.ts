@@ -14,17 +14,29 @@ const UserSchema = new Schema<IUser>(
       required: [true, 'Phone number is required'],
       unique: true,
       trim: true,
-      match: [/^\+8801[0-9]{9}$/, 'Please enter a valid Bangladesh phone number'],
+      match: [/^\d{11}$/, 'Please enter a valid 11-digit phone number'],
+    },
+    password: {
+      type: String,
+      required: [true, 'Password is required'],
+      select: false, // Don't return password by default
+    },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+    },
+    dateOfBirth: {
+      type: Date,
+    },
+    weight: {
+      type: Number,
     },
     age: {
       type: Number,
-      required: [true, 'Age is required'],
-      min: [18, 'Must be at least 18 years old'],
-      max: [65, 'Must be under 65 years old'],
     },
     gender: {
       type: String,
-      required: [true, 'Gender is required'],
       enum: ['male', 'female'] as Gender[],
     },
     bloodGroup: {
@@ -45,6 +57,10 @@ const UserSchema = new Schema<IUser>(
         type: String,
         required: [true, 'Thana is required'],
       },
+    },
+    isAvailable: {
+      type: Boolean,
+      default: true,
     },
     lastDonationDate: {
       type: Date,

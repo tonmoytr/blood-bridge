@@ -1,0 +1,15 @@
+app/donor/mission/[id]/page.tsx(318,73): error TS2339: Property 'name' does not exist on type 'never'.
+app/donor/mission/[id]/page.tsx(325,83): error TS2339: Property 'phone' does not exist on type 'never'.
+app/donor/requests/page.tsx(69,74): error TS2367: This comparison appears to be unintentional because the types '"CRITICAL" | "NORMAL"' and '"URGENT_6H"' have no overlap.
+app/donor/requests/page.tsx(69,103): error TS2367: This comparison appears to be unintentional because the types '"CRITICAL" | "NORMAL"' and '"URGENT_12H"' have no overlap.
+app/seeker/requests/[id]/page.tsx(255,63): error TS2339: Property 'thana' does not exist on type 'IRequest'.
+app/seeker/requests/[id]/page.tsx(255,110): error TS2339: Property 'district' does not exist on type 'IRequest'.
+app/seeker/requests/[id]/page.tsx(257,101): error TS2339: Property 'division' does not exist on type 'IRequest'.
+app/seeker/requests/[id]/page.tsx(335,56): error TS2339: Property 'name' does not exist on type 'never'.
+app/seeker/requests/[id]/page.tsx(335,87): error TS2339: Property 'name' does not exist on type 'never'.
+app/seeker/requests/[id]/page.tsx(339,85): error TS2339: Property 'name' does not exist on type 'never'.
+app/seeker/requests/[id]/page.tsx(358,82): error TS2339: Property 'bloodGroup' does not exist on type 'never'.
+app/seeker/requests/[id]/page.tsx(367,56): error TS2339: Property 'location' does not exist on type 'never'.
+app/seeker/requests/[id]/page.tsx(367,99): error TS2339: Property 'location' does not exist on type 'never'.
+app/seeker/requests/[id]/page.tsx(376,97): error TS2339: Property 'totalDonations' does not exist on type 'never'.
+app/seeker/requests/[id]/page.tsx(390,108): error TS2339: Property 'phone' does not exist on type 'never'.

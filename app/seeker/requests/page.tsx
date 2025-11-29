@@ -19,8 +19,12 @@ export default function SeekerRequestsPage() {
   useEffect(() => {
     const fetchRequests = async () => {
       try {
-        // TODO: Get real user ID from auth
-        const seekerId = "temp-seeker-id";
+        const seekerId = localStorage.getItem("userId");
+        if (!seekerId) {
+          toast.error("Please log in to view requests");
+          setIsLoading(false);
+          return;
+        }
         const response = await fetch(`/api/requests?seekerId=${seekerId}&sortBy=createdAt&sortOrder=desc`);
         
         if (!response.ok) {

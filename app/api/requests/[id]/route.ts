@@ -23,7 +23,7 @@ export async function GET(
     }
 
     // Only populate if acceptedDonorId is a valid ObjectId
-    if (request.acceptedDonorId && mongoose.Types.ObjectId.isValid(request.acceptedDonorId)) {
+    if (request.acceptedDonorId && typeof request.acceptedDonorId === 'string' && mongoose.Types.ObjectId.isValid(request.acceptedDonorId)) {
       request = await Request.findById(id)
         .populate('acceptedDonorId', 'name phone bloodGroup totalDonations lastDonationDate location')
         .lean();

@@ -100,10 +100,18 @@ export default function RequestDetailsPage() {
     try {
       setIsLoading(true);
       
-      // TODO: Get real donor ID from auth
-      // Using a valid existing User ID for testing
-      const donorId = "6927e833f8cd4defb21cc1c1";
-      const donorName = "Current Donor";
+      const donorId = localStorage.getItem("userId");
+      if (!donorId) {
+        toast.error("Please log in to accept requests");
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch donor details to get name
+      const userResponse = await fetch(`/api/users/${donorId}`);
+      if (!userResponse.ok) throw new Error("Failed to fetch user details");
+      const userData = await userResponse.json();
+      const donorName = userData.user.name;
 
       const response = await fetch(`/api/requests/${params.id}/accept`, {
         method: "PATCH",

@@ -31,8 +31,15 @@ export default function DonorDashboard() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // TODO: Replace with real donor ID from auth
-        const donorId = "6927e833f8cd4defb21cc1c1";
+        const donorId = localStorage.getItem("userId");
+        
+        if (!donorId) {
+          toast.error("Please log in to view dashboard");
+          // Optional: redirect to login
+          // router.push("/auth/signin");
+          setLoading(false);
+          return;
+        }
 
         // Fetch donor data
         const donorResponse = await fetch(`/api/users/${donorId}`);

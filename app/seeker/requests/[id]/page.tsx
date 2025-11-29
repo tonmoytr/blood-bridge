@@ -252,9 +252,9 @@ export default function SeekerRequestDetailsPage({ params }: { params: Promise<{
                       <div>
                         <p className="text-sm text-gray-600">Location</p>
                         <p className="font-semibold text-gray-900">
-                          {request.location?.thana || request.thana}, {request.location?.district || request.district}
+                          {request.location?.thana}, {request.location?.district}
                         </p>
-                        <p className="text-xs text-gray-500">{request.location?.division || request.division} Division</p>
+                        <p className="text-xs text-gray-500">{request.location?.division} Division</p>
                       </div>
                     </div>
 
@@ -332,11 +332,11 @@ export default function SeekerRequestDetailsPage({ params }: { params: Promise<{
                         <div className="flex items-center gap-4">
                           <Avatar className="h-12 w-12">
                             <AvatarFallback className="bg-emergency-100 text-emergency-700 text-lg font-bold">
-                              {request.acceptedDonorId.name ? request.acceptedDonorId.name.split(' ').map((n: string) => n[0]).join('') : 'D'}
+                              {(request.acceptedDonorId as any).name ? (request.acceptedDonorId as any).name.split(' ').map((n: string) => n[0]).join('') : 'D'}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <CardTitle className="text-xl">{request.acceptedDonorId.name}</CardTitle>
+                            <CardTitle className="text-xl">{(request.acceptedDonorId as any).name}</CardTitle>
                             <CardDescription>
                               Accepted {formatDistanceToNow(new Date(request.acceptedAt!), { addSuffix: true })}
                             </CardDescription>
@@ -355,7 +355,7 @@ export default function SeekerRequestDetailsPage({ params }: { params: Promise<{
                           <Droplet className="h-5 w-5 text-emergency-600" fill="currentColor" />
                           <div>
                             <p className="text-sm text-gray-600">Blood Group</p>
-                            <BloodGroupBadge bloodGroup={request.acceptedDonorId.bloodGroup} size="sm" />
+                            <BloodGroupBadge bloodGroup={(request.acceptedDonorId as any).bloodGroup} size="sm" />
                           </div>
                         </div>
 
@@ -364,7 +364,7 @@ export default function SeekerRequestDetailsPage({ params }: { params: Promise<{
                           <div>
                             <p className="text-sm text-gray-600">Location</p>
                             <p className="font-semibold text-gray-900">
-                              {request.acceptedDonorId.location?.thana}, {request.acceptedDonorId.location?.district}
+                              {(request.acceptedDonorId as any).location?.thana}, {(request.acceptedDonorId as any).location?.district}
                             </p>
                           </div>
                         </div>
@@ -373,7 +373,7 @@ export default function SeekerRequestDetailsPage({ params }: { params: Promise<{
                           <Calendar className="h-5 w-5 text-gray-400" />
                           <div>
                             <p className="text-sm text-gray-600">Total Donations</p>
-                            <p className="font-semibold text-gray-900">{request.acceptedDonorId.totalDonations || 0}</p>
+                            <p className="font-semibold text-gray-900">{(request.acceptedDonorId as any).totalDonations || 0}</p>
                           </div>
                         </div>
                       </div>
@@ -387,7 +387,7 @@ export default function SeekerRequestDetailsPage({ params }: { params: Promise<{
                           <Phone className="h-5 w-5 text-trust-600" />
                           <div className="flex-1">
                             <p className="text-sm text-gray-600">Phone Number</p>
-                            <p className="font-mono font-semibold text-trust-900">{request.acceptedDonorId.phone}</p>
+                            <p className="font-mono font-semibold text-trust-900">{(request.acceptedDonorId as any).phone}</p>
                           </div>
                           <Button size="sm" className="bg-trust-600 hover:bg-trust-700">
                             <Phone className="mr-2 h-4 w-4" />

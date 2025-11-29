@@ -1,9 +1,9 @@
 import { Card, CardContent } from "@/components/ui/card";
-import type { MockUser } from "@/lib/mock-data";
+import { IUser } from "@/types/database";
 import { MapPin, Phone, QrCode } from "lucide-react";
 
 interface DonorCardProps {
-  donor: MockUser;
+  donor: IUser;
 }
 
 export function DonorCard({ donor }: DonorCardProps) {
@@ -59,7 +59,7 @@ export function DonorCard({ donor }: DonorCardProps) {
             </div>
             <div>
               <p className="text-xs text-emergency-100">Donor ID</p>
-              <p className="text-sm font-mono mt-1">BD{donor.id ? String(donor.id).padStart(6, '0') : 'N/A'}</p>
+              <p className="text-sm font-mono mt-1">BD{donor._id ? String(donor._id).slice(-6) : 'N/A'}</p>
             </div>
           </div>
 

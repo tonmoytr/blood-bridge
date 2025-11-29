@@ -31,8 +31,13 @@ export default function SeekerDashboard() {
     const fetchRequests = async () => {
       try {
         setLoading(true);
-        // TODO: Replace with real seeker ID from auth
-        const response = await fetch("/api/requests?seekerId=temp-seeker-id&sortBy=createdAt&sortOrder=desc");
+        const seekerId = localStorage.getItem("userId");
+        if (!seekerId) {
+          toast.error("Please log in to view dashboard");
+          setLoading(false);
+          return;
+        }
+        const response = await fetch(`/api/requests?seekerId=${seekerId}&sortBy=createdAt&sortOrder=desc`);
         
         if (!response.ok) {
           throw new Error("Failed to fetch requests");

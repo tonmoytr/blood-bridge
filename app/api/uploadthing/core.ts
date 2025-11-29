@@ -1,15 +1,6 @@
 import { createUploadthing, type FileRouter } from "uploadthing/next";
 
-const f = createUploadthing({
-  /**
-   * Log out more information about the error, but don't return it to the client
-   * @see https://docs.uploadthing.com/errors#error-formatting
-   */
-  errorFormatter: (err) => {
-    console.log("UploadThing Error:", err);
-    return { message: err.message };
-  },
-});
+const f = createUploadthing();
 
 // FileRouter for your app, can contain multiple FileRoutes
 export const ourFileRouter = {

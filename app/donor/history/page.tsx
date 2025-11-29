@@ -29,8 +29,12 @@ export default function DonorHistoryPage() {
     const fetchHistory = async () => {
       try {
         setLoading(true);
-        // TODO: Replace with real donor ID from auth
-        const donorId = "6927e833f8cd4defb21cc1c1";
+        const donorId = localStorage.getItem("userId");
+        if (!donorId) {
+          toast.error("Please log in to view history");
+          setLoading(false);
+          return;
+        }
         const response = await fetch(`/api/requests?acceptedDonorId=${donorId}&status=COMPLETED&sortBy=completedAt&sortOrder=desc`);
         
         if (!response.ok) {

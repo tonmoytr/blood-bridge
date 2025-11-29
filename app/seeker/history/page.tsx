@@ -18,8 +18,12 @@ export default function SeekerHistoryPage() {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        // TODO: Get real user ID from auth
-        const seekerId = "temp-seeker-id";
+        const seekerId = localStorage.getItem("userId");
+        if (!seekerId) {
+          toast.error("Please log in to view history");
+          setIsLoading(false);
+          return;
+        }
         const response = await fetch(`/api/requests?seekerId=${seekerId}&sortBy=createdAt&sortOrder=desc`);
         
         if (!response.ok) {

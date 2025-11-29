@@ -3,7 +3,7 @@
 export type BloodGroup = "A+" | "A-" | "B+" | "B-" | "O+" | "O-" | "AB+" | "AB-";
 export type DonorStatus = "ACTIVE" | "COOLDOWN" | "SNOOZED" | "BANNED";
 export type Gender = "male" | "female";
-export type UrgencyLevel = "CRITICAL" | "HIGH" | "NORMAL";
+export type UrgencyLevel = "CRITICAL" | "HIGH" | "NORMAL" | "URGENT_6H" | "URGENT_12H";
 export type TrustLevel = "HIGH" | "MEDIUM" | "LOW";
 export type RequestStatus = "OPEN" | "ACCEPTED" | "COMPLETED" | "CANCELLED";
 export type MissionStatus = "ACCEPTED" | "LEAVING_HOME" | "AT_HOSPITAL" | "COMPLETED";
@@ -16,12 +16,18 @@ export interface Location {
 
 // User/Donor Interface
 export interface IUser {
+  _id?: string;
   name: string;
   phone: string; // unique
-  age: number;
-  gender: Gender;
+  password?: string;
+  email?: string;
+  age?: number;
+  gender?: Gender;
   bloodGroup: BloodGroup;
   location: Location;
+  dateOfBirth?: Date;
+  weight?: number;
+  isAvailable?: boolean;
   lastDonationDate?: Date;
   totalDonations: number;
   status: DonorStatus;
@@ -34,7 +40,8 @@ export interface IUser {
 
 // Blood Request Interface
 export interface IRequest {
-  seekerId: string; // User ID
+  _id?: string;
+  seekerId: string | IUser; // User ID or populated User
   seekerName: string;
   patientName: string;
   patientAge: number;
@@ -52,7 +59,7 @@ export interface IRequest {
   alternatePhone?: string;
   trustScore: TrustLevel;
   status: RequestStatus;
-  acceptedDonorId?: string; // User ID
+  acceptedDonorId?: string | IUser; // User ID or populated User
   acceptedAt?: Date;
   missionStatus?: MissionStatus;
   completedAt?: Date;

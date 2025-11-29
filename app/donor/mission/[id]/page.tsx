@@ -315,14 +315,14 @@ export default function MissionModePage({ params }: { params: Promise<{ id: stri
                   <User className="h-5 w-5 text-trust-600" />
                   <div>
                     <p className="text-sm text-trust-700">Contact Person</p>
-                    <p className="font-semibold text-trust-900">{seeker.name}</p>
+                    <p className="font-semibold text-trust-900">{(seeker as any).name}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <Phone className="h-5 w-5 text-trust-600" />
                   <div className="flex-1">
                     <p className="text-sm text-trust-700">Phone Number</p>
-                    <p className="font-mono font-semibold text-trust-900">{seeker.phone}</p>
+                    <p className="font-mono font-semibold text-trust-900">{(seeker as any).phone}</p>
                   </div>
                   <Button size="sm" className="bg-trust-600 hover:bg-trust-700">
                     <Phone className="mr-2 h-3 w-3" />
