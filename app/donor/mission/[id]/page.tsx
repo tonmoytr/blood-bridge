@@ -1,90 +1,179 @@
 "use client";
 
-import { BloodGroupBadge, UrgencyIndicator } from "@/components/features";
 import { SidebarLayout } from "@/components/layout/sidebar-layout";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { IRequest } from "@/types/database";
 import { formatDistanceToNow } from "date-fns";
 import {
     ArrowLeft,
-    Building2,
+    Check,
     CheckCircle2,
+    Droplet,
     Heart,
-    Loader2,
+    Hospital,
     Navigation,
     Phone,
     User
 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-// Mission steps
-const MISSION_STEPS = [
-  { id: "accepted", label: "Accepted", icon: CheckCircle2 },
-  { id: "leaving", label: "On the Way", icon: Navigation },
-  { id: "arrived", label: "At Hospital", icon: Building2 },
-  { id: "completed", label: "Completed", icon: Heart },
-] as const;
+interface Request {
+  _id: string;
+  patientName: string;
+  patientAge: number;
+  bloodGroup: string;
+  unitsNeeded: number;
+  hospitalName: string;
+  hospitalAddress: string;
+  urgency: string;
+  neededBy: string;
+  contactPhone: string;
+  alternatePhone?: string;
+  status: string;
+  missionStatus?: string;
+  missionTimestamps?: {
+    accepted?: string;
+    onTheWay?: string;
+    atHospital?: string;
+    donating?: string;
+    completed?: string;
+  };
+  seekerName: string;
+}
 
-type MissionStep = typeof MISSION_STEPS[number]["id"];
+const MISSION_STAGES = [
+  { id: "ACCEPTED", label: "Accepted", icon: CheckCircle2, color: "text-green-600" },
+  { id: "ON_THE_WAY", label: "On the Way", icon: Navigation, color: "text-blue-600" },
+  { id: "AT_HOSPITAL", label: "At Hospital", icon: Hospital, color: "text-purple-600" },
+  { id: "DONATING", label: "Donating", icon: Heart, color: "text-red-600" },
+  { id: "COMPLETED", label: "Completed", icon: Check, color: "text-emerald-600" },
+];
 
-export default function MissionModePage({ params }: { params: Promise<{ id: string }> }) {
+export default function MissionControlPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const [request, setRequest] = useState<IRequest | null>(null);
+  
+  const [request, setRequest] = useState<Request | null>(null);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
   const [requestId, setRequestId] = useState<string | null>(null);
-  const [currentStep, setCurrentStep] = useState<MissionStep>("accepted");
+  const userId = typeof window !== 'undefined' ? localStorage.getItem("userId") : null;
 
   useEffect(() => {
     params.then((p) => setRequestId(p.id));
   }, [params]);
 
+  // Fetch request details
   useEffect(() => {
-    if (!requestId) return;
-
-    const fetchMission = async () => {
+    const fetchRequest = async () => {
+      if (!requestId) return;
+      
       try {
-        setLoading(true);
         const response = await fetch(`/api/requests/${requestId}`);
-        
-        if (!response.ok) {
-          throw new Error("Failed to fetch mission details");
+        if (response.ok) {
+          const data = await response.json();
+          setRequest(data.request);
+        } else {
+          toast.error("Failed to load mission details");
+          router.push("/donor/missions");
         }
-
-        const data = await response.json();
-        setRequest(data.request);
-        
-        // Set current step based on status
-        if (data.request.status === "COMPLETED") {
-          setCurrentStep("completed");
-        } else if (data.request.status === "ACCEPTED") {
-          setCurrentStep("accepted");
-        }
-      } catch (error: any) {
-        console.error("Error fetching mission:", error);
+      } catch (error) {
+        console.error("Error fetching request:", error);
         toast.error("Failed to load mission details");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchMission();
-  }, [requestId]);
+    fetchRequest();
+  }, [requestId, router]);
+
+  const handleUpdateStatus = async (newStatus: string) => {
+    if (!userId || !request) return;
+
+    // Show confirmation dialog for completion
+    if (newStatus === "COMPLETED") {
+      setShowCompleteDialog(true);
+      return;
+    }
+
+    await updateMissionStatus(newStatus);
+  };
+
+  const updateMissionStatus = async (newStatus: string) => {
+    if (!requestId) return;
+    
+    setUpdating(true);
+    try {
+      const response = await fetch(`/api/requests/${requestId}/mission`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          donorId: userId,
+          missionStatus: newStatus,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setRequest(data.request);
+        toast.success(`Status updated to ${MISSION_STAGES.find(s => s.id === newStatus)?.label}`);
+        
+        // If completed, redirect after a delay
+        if (newStatus === "COMPLETED") {
+          setTimeout(() => {
+            router.push("/donor");
+          }, 2000);
+        }
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to update status");
+      }
+    } catch (error) {
+      console.error("Error updating mission status:", error);
+      toast.error("Failed to update status");
+    } finally {
+      setUpdating(false);
+      setShowCompleteDialog(false);
+    }
+  };
+
+  const getCurrentStageIndex = () => {
+    if (!request?.missionStatus) return 0;
+    return MISSION_STAGES.findIndex(s => s.id === request.missionStatus);
+  };
+
+  const getStageTimestamp = (stageId: string) => {
+    if (!request?.missionTimestamps) return null;
+    
+    const key = stageId === "ACCEPTED" ? "accepted" :
+                stageId === "ON_THE_WAY" ? "onTheWay" :
+                stageId === "AT_HOSPITAL" ? "atHospital" :
+                stageId === "DONATING" ? "donating" :
+                stageId === "COMPLETED" ? "completed" : null;
+    
+    return key ? request.missionTimestamps[key as keyof typeof request.missionTimestamps] : null;
+  };
 
   if (loading) {
     return (
       <SidebarLayout userType="donor">
-        <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-emergency-600 mx-auto mb-4" />
-              <p className="text-gray-600">Loading mission...</p>
-            </div>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading mission details...</p>
           </div>
         </div>
       </SidebarLayout>
@@ -92,273 +181,224 @@ export default function MissionModePage({ params }: { params: Promise<{ id: stri
   }
 
   if (!request) {
-    return (
-      <SidebarLayout userType="donor">
-        <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
-          <div className="text-center py-12">
-            <p className="text-gray-600">Mission not found</p>
-            <Button onClick={() => router.back()} className="mt-4">Go Back</Button>
-          </div>
-        </div>
-      </SidebarLayout>
-    );
+    return null;
   }
 
-  const currentStepIndex = MISSION_STEPS.findIndex(step => step.id === currentStep);
-  const progress = ((currentStepIndex + 1) / MISSION_STEPS.length) * 100;
-
-  const handleNextStep = () => {
-    const nextIndex = currentStepIndex + 1;
-    if (nextIndex < MISSION_STEPS.length) {
-      setCurrentStep(MISSION_STEPS[nextIndex].id);
-    }
-  };
-
-  const isStepCompleted = (stepId: MissionStep) => {
-    const stepIndex = MISSION_STEPS.findIndex(step => step.id === stepId);
-    return stepIndex <= currentStepIndex;
-  };
-
-  const isStepCurrent = (stepId: MissionStep) => stepId === currentStep;
-
-  const seeker = typeof request.seekerId === 'object' ? request.seekerId : null;
+  const currentStageIndex = getCurrentStageIndex();
+  const isCompleted = request.missionStatus === "COMPLETED";
 
   return (
     <SidebarLayout userType="donor">
       <div className="container mx-auto px-4 py-8 pb-24 md:pb-8">
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => router.back()}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900">Mission Mode</h1>
-              <p className="text-gray-600 mt-1">Track your donation journey</p>
-            </div>
-            <Badge className="bg-emergency-600 text-white">
-              {request.status === "COMPLETED" ? "Completed" : "Active Mission"}
-            </Badge>
+          <div className="mb-6">
+            <Link href="/donor/missions">
+              <Button variant="ghost" className="mb-4">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Missions
+              </Button>
+            </Link>
+            <h1 className="text-3xl font-bold text-gray-900">Mission Control</h1>
+            <p className="text-gray-600 mt-1">Track your donation journey</p>
           </div>
 
-          {/* Progress Overview */}
-          <Card className="border-2 border-emergency-200 bg-gradient-to-br from-emergency-50 to-white">
+          {/* Patient Info Card */}
+          <Card className="mb-6">
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5 text-red-600" />
+                Patient Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <CardTitle className="text-2xl text-emergency-900">
-                    Saving a Life in Progress
-                  </CardTitle>
-                  <CardDescription className="text-emergency-700">
-                    {MISSION_STEPS[currentStepIndex].label} • {Math.round(progress)}% Complete
-                  </CardDescription>
+                  <p className="text-sm text-gray-600">Patient Name</p>
+                  <p className="font-semibold">{request.patientName}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Age</p>
+                  <p className="font-semibold">{request.patientAge} years</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Blood Group</p>
+                  <div className="flex items-center gap-2">
+                    <Droplet className="h-4 w-4 text-red-600" fill="currentColor" />
+                    <span className="font-semibold text-red-600">{request.bloodGroup}</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Units Needed</p>
+                  <p className="font-semibold">{request.unitsNeeded} bag(s)</p>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <Progress value={progress} className="h-3" />
+
+              <Separator />
+
+              <div>
+                <p className="text-sm text-gray-600 mb-2">Hospital</p>
+                <div className="flex items-start gap-2">
+                  <Hospital className="h-5 w-5 text-gray-600 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">{request.hospitalName}</p>
+                    <p className="text-sm text-gray-600">{request.hospitalAddress}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-600 mb-2">Contact</p>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-gray-600" />
+                    <a href={`tel:${request.contactPhone}`} className="text-blue-600 hover:underline">
+                      {request.contactPhone}
+                    </a>
+                  </div>
+                  {request.alternatePhone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-gray-600" />
+                      <a href={`tel:${request.alternatePhone}`} className="text-blue-600 hover:underline">
+                        {request.alternatePhone}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Mission Stepper */}
-          <Card>
+          {/* Mission Progress */}
+          <Card className="mb-6">
             <CardHeader>
               <CardTitle>Mission Progress</CardTitle>
-              <CardDescription>Track each step of your donation journey</CardDescription>
+              <CardDescription>Update your status as you progress</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                {MISSION_STEPS.map((step, index) => {
-                  const Icon = step.icon;
-                  const completed = isStepCompleted(step.id);
-                  const current = isStepCurrent(step.id);
-                  const isLast = index === MISSION_STEPS.length - 1;
+              {/* Progress Stepper */}
+              <div className="relative">
+                {/* Progress Line */}
+                <div className="absolute top-6 left-0 right-0 h-0.5 bg-gray-200">
+                  <div
+                    className="h-full bg-gradient-to-r from-green-600 to-red-600 transition-all duration-500"
+                    style={{ width: `${(currentStageIndex / (MISSION_STAGES.length - 1)) * 100}%` }}
+                  />
+                </div>
 
-                  return (
-                    <div key={step.id} className="relative">
-                      <div className="flex items-start gap-4">
-                        {/* Icon */}
-                        <div className={`relative z-10 flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all ${
-                          completed 
-                            ? "bg-emergency-600 border-emergency-600 text-white" 
-                            : current
-                            ? "bg-white border-emergency-600 text-emergency-600 animate-pulse"
-                            : "bg-gray-100 border-gray-300 text-gray-400"
+                {/* Stages */}
+                <div className="relative flex justify-between">
+                  {MISSION_STAGES.map((stage, index) => {
+                    const Icon = stage.icon;
+                    const isCompleted = index < currentStageIndex;
+                    const isCurrent = index === currentStageIndex;
+                    const timestamp = getStageTimestamp(stage.id);
+
+                    return (
+                      <div key={stage.id} className="flex flex-col items-center" style={{ width: '20%' }}>
+                        {/* Icon Circle */}
+                        <div
+                          className={`
+                            w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 z-10
+                            ${isCompleted ? 'bg-green-600 border-green-600' : ''}
+                            ${isCurrent ? 'bg-white border-blue-600 shadow-lg animate-pulse' : ''}
+                            ${!isCompleted && !isCurrent ? 'bg-white border-gray-300' : ''}
+                          `}
+                        >
+                          <Icon
+                            className={`h-6 w-6 ${
+                              isCompleted ? 'text-white' :
+                              isCurrent ? 'text-blue-600' :
+                              'text-gray-400'
+                            }`}
+                          />
+                        </div>
+
+                        {/* Label */}
+                        <p className={`mt-2 text-xs font-medium text-center ${
+                          isCurrent ? 'text-blue-600' : 'text-gray-600'
                         }`}>
-                          <Icon className="h-6 w-6" />
-                        </div>
+                          {stage.label}
+                        </p>
 
-                        {/* Content */}
-                        <div className="flex-1 pt-1">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className={`font-semibold text-lg ${
-                                completed || current ? "text-gray-900" : "text-gray-500"
-                              }`}>
-                                {step.label}
-                              </h3>
-                              {current && (
-                                <p className="text-sm text-emergency-600 font-medium mt-1">
-                                  Current Step
-                                </p>
-                              )}
-                              {completed && !current && (
-                                <p className="text-sm text-gray-500 mt-1">
-                                  ✓ Completed
-                                </p>
-                              )}
-                            </div>
-                            {current && currentStepIndex < MISSION_STEPS.length - 1 && (
-                              <Button 
-                                onClick={handleNextStep}
-                                className="bg-emergency-600 hover:bg-emergency-700"
-                              >
-                                Mark as Complete
-                              </Button>
-                            )}
-                            {current && currentStepIndex === MISSION_STEPS.length - 1 && (
-                              <Button 
-                                onClick={() => router.push("/donor")}
-                                className="bg-trust-600 hover:bg-trust-700"
-                              >
-                                <Heart className="mr-2 h-4 w-4" />
-                                Finish Mission
-                              </Button>
-                            )}
-                          </div>
-                        </div>
+                        {/* Timestamp */}
+                        {timestamp && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {formatDistanceToNow(new Date(timestamp), { addSuffix: true })}
+                          </p>
+                        )}
                       </div>
-
-                      {/* Connector Line */}
-                      {!isLast && (
-                        <div className={`absolute left-6 top-12 w-0.5 h-6 -ml-px ${
-                          completed ? "bg-emergency-600" : "bg-gray-300"
-                        }`} />
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Patient & Hospital Info */}
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Patient Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Patient Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <User className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-600">Patient Name</p>
-                    <p className="font-semibold">{request.patientName}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-5 w-5" />
-                  <div>
-                    <p className="text-sm text-gray-600">Blood Group Needed</p>
-                    <BloodGroupBadge bloodGroup={request.bloodGroup} size="md" />
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-5 w-5" />
-                  <div>
-                    <p className="text-sm text-gray-600">Units Required</p>
-                    <p className="text-2xl font-bold text-emergency-600">{request.unitsNeeded}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-5 w-5" />
-                  <div>
-                    <p className="text-sm text-gray-600">Urgency</p>
-                    <UrgencyIndicator level={request.urgency} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+              {/* Action Buttons */}
+              {!isCompleted && (
+                <div className="mt-8 flex flex-wrap gap-3 justify-center">
+                  {MISSION_STAGES.map((stage, index) => {
+                    const isNext = index === currentStageIndex + 1;
+                    if (!isNext) return null;
 
-            {/* Hospital Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Hospital Location</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <Building2 className="h-5 w-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-gray-600">Hospital</p>
-                    <p className="font-semibold">{request.hospitalName}</p>
-                    <p className="text-sm text-gray-500">{request.location?.thana}, {request.location?.district}</p>
-                  </div>
+                    return (
+                      <Button
+                        key={stage.id}
+                        onClick={() => handleUpdateStatus(stage.id)}
+                        disabled={updating}
+                        className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
+                      >
+                        {updating ? "Updating..." : `Mark as ${stage.label}`}
+                      </Button>
+                    );
+                  })}
                 </div>
-                <Separator />
-                <Button variant="outline" className="w-full">
-                  <Navigation className="mr-2 h-4 w-4" />
-                  Open in Maps
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+              )}
 
-          {/* Contact Info */}
-          {seeker && (
-            <Card className="border-2 border-trust-200 bg-trust-50">
-              <CardHeader>
-                <CardTitle className="text-trust-900">Emergency Contact</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <User className="h-5 w-5 text-trust-600" />
-                  <div>
-                    <p className="text-sm text-trust-700">Contact Person</p>
-                    <p className="font-semibold text-trust-900">{(seeker as any).name}</p>
+              {isCompleted && (
+                <div className="mt-8 text-center">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-full">
+                    <CheckCircle2 className="h-5 w-5" />
+                    <span className="font-semibold">Mission Completed!</span>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Phone className="h-5 w-5 text-trust-600" />
-                  <div className="flex-1">
-                    <p className="text-sm text-trust-700">Phone Number</p>
-                    <p className="font-mono font-semibold text-trust-900">{(seeker as any).phone}</p>
-                  </div>
-                  <Button size="sm" className="bg-trust-600 hover:bg-trust-700">
-                    <Phone className="mr-2 h-3 w-3" />
-                    Call Now
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Mission Stats */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Mission Details</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">Request ID</p>
-                  <p className="font-mono font-semibold text-sm">{request._id}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Accepted</p>
-                  <p className="font-semibold">
-                    {request.acceptedAt ? formatDistanceToNow(new Date(request.acceptedAt), { addSuffix: true }) : 'Recently'}
+                  <p className="text-sm text-gray-600 mt-2">
+                    Thank you for saving a life! You're now in cooldown for 90 days.
                   </p>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600">Status</p>
-                  <Badge className="bg-emergency-600 text-white">{request.status}</Badge>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Completion Confirmation Dialog */}
+      <Dialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
+        <DialogContent className="bg-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-gray-900">Complete Mission?</DialogTitle>
+            <DialogDescription className="text-gray-600">
+              Marking this mission as completed will:
+              <ul className="list-disc list-inside mt-2 space-y-1 text-gray-600">
+                <li>Record this as a successful donation</li>
+                <li>Put you in cooldown for 90 days (3 months)</li>
+                <li>Increment your total donations count</li>
+              </ul>
+              <p className="mt-3 font-semibold text-red-600">This action cannot be undone.</p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowCompleteDialog(false)} className="text-gray-700 border-gray-300">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => updateMissionStatus("COMPLETED")}
+              disabled={updating}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {updating ? "Completing..." : "Yes, Complete Mission"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SidebarLayout>
   );
 }

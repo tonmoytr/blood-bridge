@@ -6,7 +6,7 @@ export type Gender = "male" | "female";
 export type UrgencyLevel = "CRITICAL" | "HIGH" | "NORMAL" | "URGENT_6H" | "URGENT_12H";
 export type TrustLevel = "HIGH" | "MEDIUM" | "LOW";
 export type RequestStatus = "OPEN" | "ACCEPTED" | "COMPLETED" | "CANCELLED";
-export type MissionStatus = "ACCEPTED" | "LEAVING_HOME" | "AT_HOSPITAL" | "COMPLETED";
+export type MissionStatus = "ACCEPTED" | "ON_THE_WAY" | "AT_HOSPITAL" | "DONATING" | "COMPLETED";
 
 export interface Location {
   division: string;
@@ -62,6 +62,13 @@ export interface IRequest {
   acceptedDonorId?: string | IUser; // User ID or populated User
   acceptedAt?: Date;
   missionStatus?: MissionStatus;
+  missionTimestamps?: {
+    accepted?: Date;
+    onTheWay?: Date;
+    atHospital?: Date;
+    donating?: Date;
+    completed?: Date;
+  };
   completedAt?: Date;
   createdAt: Date;
   updatedAt: Date;

@@ -113,8 +113,15 @@ const RequestSchema = new Schema<IRequest>(
     },
     missionStatus: {
       type: String,
-      enum: ['ACCEPTED', 'LEAVING_HOME', 'AT_HOSPITAL', 'COMPLETED'] as MissionStatus[],
+      enum: ['ACCEPTED', 'ON_THE_WAY', 'AT_HOSPITAL', 'DONATING', 'COMPLETED'] as MissionStatus[],
       default: null,
+    },
+    missionTimestamps: {
+      accepted: { type: Date, default: null },
+      onTheWay: { type: Date, default: null },
+      atHospital: { type: Date, default: null },
+      donating: { type: Date, default: null },
+      completed: { type: Date, default: null },
     },
     completedAt: {
       type: Date,

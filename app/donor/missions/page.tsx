@@ -164,15 +164,16 @@ export default function DonorMissionsPage() {
 
                     {/* Actions */}
                     <div className="flex gap-3 pt-4 border-t">
+                      <Link href={`/donor/mission/${mission._id}`} className="flex-1">
+                        <Button className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800">
+                          View Mission
+                        </Button>
+                      </Link>
                       <Link href={`/request/${mission._id}`} className="flex-1">
                         <Button variant="outline" className="w-full">
                           View Details
                         </Button>
                       </Link>
-                      <Button className="flex-1 bg-emergency-600 hover:bg-emergency-700">
-                        <Phone className="mr-2 h-4 w-4" />
-                        Call Now
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>

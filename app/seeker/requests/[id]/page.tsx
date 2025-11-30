@@ -348,7 +348,59 @@ export default function SeekerRequestDetailsPage({ params }: { params: Promise<{
                         </Badge>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-6">
+                      {/* Mission Progress */}
+                      <div className="bg-gray-50 p-4 rounded-lg border">
+                        <p className="text-sm font-semibold text-gray-900 mb-4">Live Mission Status</p>
+                        <div className="relative">
+                          {/* Progress Line */}
+                          <div className="absolute top-3 left-0 right-0 h-0.5 bg-gray-200">
+                            <div
+                              className="h-full bg-green-600 transition-all duration-500"
+                              style={{ 
+                                width: `${(
+                                  ["ACCEPTED", "ON_THE_WAY", "AT_HOSPITAL", "DONATING", "COMPLETED"].indexOf(request.missionStatus || "ACCEPTED") / 4
+                                ) * 100}%` 
+                              }}
+                            />
+                          </div>
+
+                          {/* Stages */}
+                          <div className="relative flex justify-between">
+                            {[
+                              { id: "ACCEPTED", label: "Accepted" },
+                              { id: "ON_THE_WAY", label: "On the Way" },
+                              { id: "AT_HOSPITAL", label: "At Hospital" },
+                              { id: "DONATING", label: "Donating" },
+                              { id: "COMPLETED", label: "Completed" },
+                            ].map((stage, index) => {
+                              const currentStageIndex = ["ACCEPTED", "ON_THE_WAY", "AT_HOSPITAL", "DONATING", "COMPLETED"].indexOf(request.missionStatus || "ACCEPTED");
+                              const isCompleted = index <= currentStageIndex;
+                              const isCurrent = index === currentStageIndex;
+
+                              return (
+                                <div key={stage.id} className="flex flex-col items-center" style={{ width: '20%' }}>
+                                  <div
+                                    className={`
+                                      w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all duration-300 z-10
+                                      ${isCompleted ? 'bg-green-600 border-green-600' : 'bg-white border-gray-300'}
+                                      ${isCurrent ? 'ring-4 ring-green-100' : ''}
+                                    `}
+                                  >
+                                    {isCompleted && <CheckCircle2 className="h-3 w-3 text-white" />}
+                                  </div>
+                                  <p className={`mt-2 text-[10px] md:text-xs font-medium text-center ${
+                                    isCurrent ? 'text-green-700' : 'text-gray-500'
+                                  }`}>
+                                    {stage.label}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Donor Details */}
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="flex items-center gap-3">
@@ -389,10 +441,12 @@ export default function SeekerRequestDetailsPage({ params }: { params: Promise<{
                             <p className="text-sm text-gray-600">Phone Number</p>
                             <p className="font-mono font-semibold text-trust-900">{(request.acceptedDonorId as any).phone}</p>
                           </div>
-                          <Button size="sm" className="bg-trust-600 hover:bg-trust-700">
-                            <Phone className="mr-2 h-4 w-4" />
-                            Call Now
-                          </Button>
+                          <a href={`tel:${(request.acceptedDonorId as any).phone}`}>
+                            <Button size="sm" className="bg-trust-600 hover:bg-trust-700">
+                              <Phone className="mr-2 h-4 w-4" />
+                              Call Now
+                            </Button>
+                          </a>
                         </div>
                         <Button variant="outline" className="w-full">
                           <MessageSquare className="mr-2 h-4 w-4" />
