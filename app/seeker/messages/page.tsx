@@ -120,12 +120,29 @@ export default function SeekerMessagesPage() {
     console.log("userId:", userId);
     console.log("userName:", userName);
     
-    if (!newMessage.trim() || !selectedThread || !userId || !userName) {
+    let currentUserName = userName;
+
+    // If userName is missing but we have userId, try to fetch it
+    if (!currentUserName && userId) {
+      try {
+        const userResponse = await fetch(`/api/users/${userId}`);
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          currentUserName = userData.user.name;
+          // Update localStorage for future use
+          localStorage.setItem("userName", currentUserName as string);
+        }
+      } catch (err) {
+        console.error("Failed to fetch user details:", err);
+      }
+    }
+    
+    if (!newMessage.trim() || !selectedThread || !userId || !currentUserName) {
       console.error("Missing required fields for sending message");
       if (!newMessage.trim()) console.error("- newMessage is empty");
       if (!selectedThread) console.error("- selectedThread is null");
       if (!userId) console.error("- userId is null");
-      if (!userName) console.error("- userName is null");
+      if (!currentUserName) console.error("- userName is null");
       toast.error("Cannot send message. Please sign in again.");
       return;
     }
@@ -138,7 +155,7 @@ export default function SeekerMessagesPage() {
         body: JSON.stringify({
           threadId: selectedThread._id,
           senderId: userId,
-          senderName: userName,
+          senderName: currentUserName,
           content: newMessage.trim(),
         }),
       });
@@ -149,13 +166,17 @@ export default function SeekerMessagesPage() {
         setNewMessage("");
         
         // Update thread's last message time
-        setThreads(prev =>
-          prev.map(t =>
+        // Update thread's last message time and re-sort
+        setThreads(prev => {
+          const updatedThreads = prev.map(t =>
             t._id === selectedThread._id
               ? { ...t, lastMessageAt: new Date().toISOString() }
               : t
-          )
-        );
+          );
+          return updatedThreads.sort((a, b) => 
+            new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+          );
+        });
       } else {
         toast.error("Failed to send message");
       }

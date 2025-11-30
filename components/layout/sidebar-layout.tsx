@@ -1,6 +1,7 @@
 "use client";
 
 import { RoleToggle } from "@/components/layout/role-toggle";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface SidebarLayoutProps {
   children: React.ReactNode;
@@ -27,6 +29,32 @@ interface SidebarLayoutProps {
 
 export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
   const pathname = usePathname();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Fetch unread count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      const userId = localStorage.getItem("userId");
+      if (!userId) return;
+
+      try {
+        const response = await fetch(`/api/threads/unread?userId=${userId}&userType=${userType}`);
+        if (response.ok) {
+          const data = await response.json();
+          setUnreadCount(data.unreadCount || 0);
+        }
+      } catch (error) {
+        console.error("Failed to fetch unread count:", error);
+      }
+    };
+
+    fetchUnreadCount();
+    
+    // Poll every 30 seconds
+    const interval = setInterval(fetchUnreadCount, 30000);
+    
+    return () => clearInterval(interval);
+  }, [userType]);
 
   const donorNavItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/donor" },
@@ -86,7 +114,12 @@ export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
                     )}
                   >
                     <Icon className="h-5 w-5 flex-shrink-0" />
-                    {item.label}
+                    <span className="flex-1 text-left">{item.label}</span>
+                    {item.label === "Messages" && unreadCount > 0 && (
+                      <Badge className="bg-red-600 text-white hover:bg-red-700 ml-auto">
+                        {unreadCount}
+                      </Badge>
+                    )}
                   </Button>
                 </Link>
               );
@@ -176,12 +209,17 @@ export function SidebarLayout({ children, userType }: SidebarLayoutProps) {
                 <Button
                   variant="ghost"
                   className={cn(
-                    "w-full flex-col h-14 gap-0.5 px-1 rounded-lg transition-all duration-200 text-xs font-medium",
+                    "w-full flex-col h-14 gap-0.5 px-1 rounded-lg transition-all duration-200 text-xs font-medium relative",
                     isActive 
                       ? "text-red-600 bg-red-50 font-semibold" 
                       : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                   )}
                 >
+                  {item.label === "Messages" && unreadCount > 0 && (
+                    <Badge className="absolute top-1 right-1 h-4 min-w-4 px-1 text-[9px] bg-red-600 text-white hover:bg-red-700">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </Badge>
+                  )}
                   <Icon className="h-5 w-5" />
                   <span className="text-[10px] leading-tight">{item.label}</span>
                 </Button>

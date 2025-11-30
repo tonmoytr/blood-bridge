@@ -103,6 +103,7 @@ export default function SignUpPage() {
 
       // Store user ID in localStorage for "auth"
       localStorage.setItem("userId", data.userId);
+      localStorage.setItem("userName", formData.name); // Store name for messaging
       localStorage.setItem("userRole", "donor"); // Everyone is a donor/seeker now
 
       // Redirect to donor dashboard

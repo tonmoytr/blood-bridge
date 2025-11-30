@@ -1,5 +1,6 @@
 import dbConnect from "@/lib/db/mongoose";
 import ChatThread from "@/lib/models/ChatThread";
+import mongoose from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -66,16 +67,37 @@ export async function GET(req: NextRequest) {
 
     // Filter threads based on user type
     let query: any;
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
     if (userType === "donor") {
       // Donor page: only show threads where user is the donor
-      query = { donorId: userId };
+      query = { 
+        $or: [
+          { donorId: userObjectId },
+          { donorId: userId }
+        ]
+      };
     } else if (userType === "seeker") {
       // Seeker page: only show threads where user is the seeker
-      query = { seekerId: userId };
+      query = { 
+        $or: [
+          { seekerId: userObjectId },
+          { seekerId: userId }
+        ]
+      };
     } else {
-      // Fallback: show all threads (for backward compatibility)
-      query = { $or: [{ donorId: userId }, { seekerId: userId }] };
+      // Fallback: show all threads
+      query = { 
+        $or: [
+          { donorId: userObjectId },
+          { donorId: userId },
+          { seekerId: userObjectId },
+          { seekerId: userId }
+        ]
+      };
     }
+
+    console.log("Query:", JSON.stringify(query));
 
     const threads = await ChatThread.find(query)
       .populate("requestId")

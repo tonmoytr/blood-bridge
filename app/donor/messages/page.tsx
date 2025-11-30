@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
 import { Loader2, MessageSquare, Search, Send } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -33,6 +34,10 @@ interface Thread {
     _id: string;
     name: string;
   };
+  seekerId: {
+    _id: string;
+    name: string;
+  };
   lastMessageAt: string;
   unreadCount: number;
   status: string;
@@ -50,6 +55,10 @@ export default function DonorMessagesPage() {
   const userId = typeof window !== 'undefined' ? localStorage.getItem("userId") : null;
   const userName = typeof window !== 'undefined' ? localStorage.getItem("userName") : null;
 
+  const searchParams = useSearchParams();
+  const targetSeekerId = searchParams.get("seekerId");
+  const targetRequestId = searchParams.get("requestId");
+
   // Fetch threads
   useEffect(() => {
     if (!userId) return;
@@ -59,9 +68,59 @@ export default function DonorMessagesPage() {
         const response = await fetch(`/api/threads?userId=${userId}&userType=donor`);
         if (response.ok) {
           const data = await response.json();
-          setThreads(data.threads);
-          if (data.threads.length > 0 && !selectedThread) {
-            setSelectedThread(data.threads[0]);
+          let currentThreads = data.threads;
+          
+          // Auto-select thread if seekerId is provided
+          if (targetSeekerId) {
+            const targetThread = currentThreads.find((t: Thread) => 
+              t.otherUser._id === targetSeekerId || t.seekerId._id === targetSeekerId
+            );
+            
+            if (targetThread) {
+              setThreads(currentThreads);
+              setSelectedThread(targetThread);
+            } else if (targetRequestId) {
+              // Thread doesn't exist but we have details to create it
+              try {
+                const createResponse = await fetch('/api/threads', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    requestId: targetRequestId,
+                    donorId: userId,
+                    seekerId: targetSeekerId
+                  })
+                });
+                
+                if (createResponse.ok) {
+                  const { thread } = await createResponse.json();
+                  // Transform the new thread to match the list format if needed
+                  // The API returns the raw thread, we might need to populate/transform it
+                  // For now, let's just re-fetch to be safe and consistent
+                  const refetchResponse = await fetch(`/api/threads?userId=${userId}&userType=donor`);
+                  if (refetchResponse.ok) {
+                    const refetchData = await refetchResponse.json();
+                    setThreads(refetchData.threads);
+                    const newThread = refetchData.threads.find((t: Thread) => t._id === thread._id);
+                    if (newThread) setSelectedThread(newThread);
+                  }
+                } else {
+                  setThreads(currentThreads);
+                  if (currentThreads.length > 0) setSelectedThread(currentThreads[0]);
+                }
+              } catch (err) {
+                console.error("Error creating thread:", err);
+                setThreads(currentThreads);
+              }
+            } else {
+              setThreads(currentThreads);
+              if (currentThreads.length > 0) setSelectedThread(currentThreads[0]);
+            }
+          } else {
+            setThreads(currentThreads);
+            if (currentThreads.length > 0 && !selectedThread) {
+              setSelectedThread(currentThreads[0]);
+            }
           }
         }
       } catch (error) {
@@ -73,7 +132,7 @@ export default function DonorMessagesPage() {
     };
 
     fetchThreads();
-  }, [userId]);
+  }, [userId, targetSeekerId, targetRequestId]);
 
   // Fetch messages when thread is selected
   useEffect(() => {
@@ -120,12 +179,29 @@ export default function DonorMessagesPage() {
     console.log("userId:", userId);
     console.log("userName:", userName);
     
-    if (!newMessage.trim() || !selectedThread || !userId || !userName) {
+    let currentUserName = userName;
+
+    // If userName is missing but we have userId, try to fetch it
+    if (!currentUserName && userId) {
+      try {
+        const userResponse = await fetch(`/api/users/${userId}`);
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          currentUserName = userData.user.name;
+          // Update localStorage for future use
+          localStorage.setItem("userName", currentUserName as string);
+        }
+      } catch (err) {
+        console.error("Failed to fetch user details:", err);
+      }
+    }
+
+    if (!newMessage.trim() || !selectedThread || !userId || !currentUserName) {
       console.error("Missing required fields for sending message");
       if (!newMessage.trim()) console.error("- newMessage is empty");
       if (!selectedThread) console.error("- selectedThread is null");
       if (!userId) console.error("- userId is null");
-      if (!userName) console.error("- userName is null");
+      if (!currentUserName) console.error("- userName is null");
       toast.error("Cannot send message. Please sign in again.");
       return;
     }
@@ -138,7 +214,7 @@ export default function DonorMessagesPage() {
         body: JSON.stringify({
           threadId: selectedThread._id,
           senderId: userId,
-          senderName: userName,
+          senderName: currentUserName,
           content: newMessage.trim(),
         }),
       });
@@ -149,13 +225,17 @@ export default function DonorMessagesPage() {
         setNewMessage("");
         
         // Update thread's last message time
-        setThreads(prev =>
-          prev.map(t =>
+        // Update thread's last message time and re-sort
+        setThreads(prev => {
+          const updatedThreads = prev.map(t =>
             t._id === selectedThread._id
               ? { ...t, lastMessageAt: new Date().toISOString() }
               : t
-          )
-        );
+          );
+          return updatedThreads.sort((a, b) => 
+            new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+          );
+        });
       } else {
         toast.error("Failed to send message");
       }

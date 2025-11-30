@@ -430,11 +430,54 @@ function CheckCircleIcon() {
 
 function AuthArea() {
   const [signedIn, setSignedIn] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const id = localStorage.getItem('userId');
-    setSignedIn(!!id);
+    let mounted = true;
+
+    const validate = async () => {
+      const id = localStorage.getItem('userId');
+      if (!id) {
+        if (mounted) setSignedIn(false);
+        if (mounted) setChecking(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/users/${id}`);
+        if (!res.ok) {
+          // stale id — clear and treat as signed out
+          localStorage.removeItem('userId');
+          localStorage.removeItem('userRole');
+          if (mounted) setSignedIn(false);
+        } else {
+          const data = await res.json();
+          // API may return { user } or user object directly
+          const hasUser = !!(data && (data.user || data.name || data._id));
+          if (mounted) setSignedIn(hasUser);
+          if (!hasUser) {
+            localStorage.removeItem('userId');
+            localStorage.removeItem('userRole');
+          }
+        }
+      } catch (err) {
+        console.error('AuthArea validation failed', err);
+        localStorage.removeItem('userId');
+        localStorage.removeItem('userRole');
+        if (mounted) setSignedIn(false);
+      } finally {
+        if (mounted) setChecking(false);
+      }
+    };
+
+    validate();
+    return () => { mounted = false; };
   }, []);
+
+  if (checking) {
+    // keep space to avoid layout shift
+    return <div className="w-36" />;
+  }
 
   if (signedIn) {
     return <UserAvatarMenu />;

@@ -48,7 +48,8 @@ export async function PATCH(
     }
 
     // Prevent seeker from accepting their own request
-    if (request.seekerId === donorId) {
+    const seekerIdString = request.seekerId.toString();
+    if (seekerIdString === donorId) {
       return NextResponse.json(
         { error: 'You cannot accept your own request' },
         { status: 400 }
