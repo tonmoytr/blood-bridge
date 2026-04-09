@@ -24,11 +24,6 @@ Blood Bridge is a Blood Bank Management System that simplifies the process of bl
 
 It aims to reduce delays and improve accessibility in emergency situations by digitizing the blood donation workflow and enabling real-time tracking. ([GitHub][1])
 
----
-
-## 🖼️ Screenshot
-
-> *(Add a screenshot here for better presentation)*
 
 ```
 ![Blood Bridge Screenshot](./screenshots/home.png)
